@@ -34,7 +34,11 @@ def state():
 
 @app.post("/api/train")
 def train():
-    r = run_process([sys.executable, str(ROOT / "python" / "train_models.py")])
+    body = request.get_json(silent=True) or {}
+    dataset = body.get("dataset", "breast_cancer")
+    if dataset not in {"breast_cancer", "iris"}:
+        return jsonify({"ok": False, "output": "Unknown dataset"}), 400
+    r = run_process([sys.executable, str(ROOT / "python" / "train_models.py"), "--dataset", dataset])
     r["data"] = load("models_summary.json")
     return jsonify(r)
 
@@ -63,19 +67,6 @@ def batch_infer():
         return jsonify({"ok": False, "output": "Train all models first."}), 400
     r = run_process([sys.executable, str(ROOT / "python" / "run_batch_benchmark.py"), "--max-per-class", str(max_per_class)])
     r["data"] = load("batch_benchmark.json")
-    return jsonify(r)
-
-
-@app.post("/api/infer")
-def infer():
-    model = (request.get_json(silent=True) or {}).get("model", "logistic_regression")
-    allowed = {"logistic_regression", "decision_tree", "random_forest", "mlp_classifier"}
-    if model not in allowed:
-        return jsonify({"ok": False, "output": "Unknown model"}), 400
-    if not (RESULTS / "models_summary.json").exists():
-        run_process([sys.executable, str(ROOT / "python" / "train_models.py")])
-    r = run_process([sys.executable, str(ROOT / "python" / "run_hardware_inference.py"), "--model", model])
-    r["data"] = load(f"inference_{model}.json")
     return jsonify(r)
 
 

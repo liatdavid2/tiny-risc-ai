@@ -11,9 +11,15 @@
   <header class="topbar">
     <div>
       <h1>TinyRISC-AI Lab</h1>
-      <p>Train sklearn on the computer → export the learned model → run batched inference on our SystemVerilog CPU</p>
+      <p>Train real sklearn datasets on the host → export the learned model → run batched inference on our SystemVerilog CPU</p>
     </div>
     <div class="actions">
+      <label class="batch-input">Dataset
+        <select id="datasetSelect">
+          <option value="breast_cancer">Breast Cancer — binary</option>
+          <option value="iris">Iris — multiclass</option>
+        </select>
+      </label>
       <button id="trainBtn" class="primary">1. TRAIN ALL MODELS</button>
       <label class="batch-input">Max / class <input id="maxPerClass" type="number" min="1" max="100" value="25"></label>
       <button id="batchBtn" class="primary accent">2. RUN BATCH INFERENCE</button>
@@ -39,33 +45,29 @@
     <section class="phase training">
       <div class="phase-title">
         <span class="num">1</span>
-        <div><h2>TRAINING — normal computer</h2><p>All four models are trained with scikit-learn. This phase does not run on TinyRISC.</p></div>
+        <div><h2>TRAINING — normal computer</h2><p id="datasetInfo">Breast Cancer Wisconsin · real binary dataset · 4 selected real features for TinyRISC v1.</p></div>
         <span id="trainState" class="state">waiting</span>
       </div>
       <div class="flow compact">
-        <div class="node">Dataset<br><small>800 × 4</small></div><span>→</span>
+        <div class="node">Real dataset<br><small id="datasetShape">Breast Cancer</small></div><span>→</span>
         <div class="node host">scikit-learn<br><small>HOST CPU</small></div><span>→</span>
         <div class="node">Export<br><small>weights / trees</small></div>
       </div>
       <div id="trainingResults" class="model-grid muted">
-        <div class="model-card"><b>Logistic Regression</b><span>Accuracy</span><strong>—</strong><small>Train time —</small></div>
-        <div class="model-card"><b>Decision Tree</b><span>Accuracy</span><strong>—</strong><small>Train time —</small></div>
-        <div class="model-card"><b>Random Forest</b><span>Accuracy</span><strong>—</strong><small>Train time —</small></div>
-        <div class="model-card"><b>MLP Classifier</b><span>Accuracy</span><strong>—</strong><small>Train time —</small></div>
+        <div class="model-card"><b>Logistic Regression</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
+        <div class="model-card"><b>Decision Tree</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
+        <div class="model-card"><b>Random Forest</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
+        <div class="model-card"><b>MLP Classifier</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
       </div>
     </section>
 
     <section class="phase inference">
       <div class="phase-title">
         <span class="num">2</span>
-        <div><h2>BATCH INFERENCE — computer vs our TinyRISC CPU</h2><p>We take up to N examples from each class and send the same batch to sklearn and to our CPU.</p></div>
+        <div><h2>BATCH INFERENCE — computer vs our TinyRISC CPU</h2><p>Same held-out test samples, same trained model, two inference engines.</p></div>
         <span id="inferState" class="state">waiting</span>
       </div>
-      <div id="batchSummary" class="batch-summary">
-        <div><span>Samples</span><strong>—</strong></div>
-        <div><span>Class 0</span><strong>—</strong></div>
-        <div><span>Class 1</span><strong>—</strong></div>
-      </div>
+      <div id="batchSummary" class="batch-summary"></div>
       <div class="compare-head batch-head">
         <span>MODEL</span><span>PREDICTION QUALITY</span><span>COMPUTER</span><span>TINY CPU</span>
       </div>
@@ -75,11 +77,11 @@
         <div class="compare-row batch-row" data-model="random_forest"><b>Random Forest</b><div>—</div><div>—</div><div>—</div></div>
         <div class="compare-row batch-row" data-model="mlp_classifier"><b>MLP Classifier</b><div>—</div><div>—</div><div>—</div></div>
       </div>
-      <div class="cpu-flow-note"><b>Computer:</b> real sklearn wall-clock time &nbsp; | &nbsp; <b>TinyRISC:</b> simulated CPU cycles. Do not compare ms directly to cycles.</div>
+      <div class="cpu-flow-note"><b>Computer:</b> real sklearn wall-clock time &nbsp; | &nbsp; <b>TinyRISC:</b> simulated CPU cycles. ms and cycles are intentionally shown separately.</div>
     </section>
   </main>
 
-  <footer><span id="status">Step 1: train the models.</span><button id="testsBtn">Run CPU block tests</button></footer>
+  <footer><span id="status">Step 1: choose Breast Cancer or Iris and train the models.</span><button id="testsBtn">Run CPU block tests</button></footer>
 </div>
 <script src="/static/app.js"></script>
 </body>

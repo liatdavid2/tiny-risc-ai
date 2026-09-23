@@ -1,84 +1,96 @@
 # TinyRISC-AI
 
-A learning project that builds a small RISC-style CPU from digital-logic blocks in SystemVerilog, trains ML models with scikit-learn on the normal computer, then executes **inference as an instruction program inside the simulated CPU**.
+A learning project that builds a small RISC-style CPU from digital-logic blocks in SystemVerilog, trains scikit-learn models on **real built-in datasets**, then executes inference as an instruction program inside the simulated TinyRISC CPU.
 
-## What is new in this version
+## Datasets — no synthetic data
 
-TinyRISC now has a real **Instruction Memory** and CPU control-flow instructions:
+The UI offers only two real, well-known scikit-learn datasets:
 
-- `BEQ` — branch if equal
-- `BNE` — branch if not equal
-- `JAL x0,label` — used as an unconditional `JUMP`
-- `HALT` — teaching instruction used to stop the simulator
+- **Breast Cancer Wisconsin** — binary classification. The original dataset has 569 rows and 30 features. TinyRISC v1 uses four real features so the same 4-input teaching CPU can run both datasets: mean radius, mean texture, mean perimeter and mean area.
+- **Iris** — 150 rows, all 4 original features, 3 classes: setosa, versicolor and virginica.
 
-The Program Counter is therefore no longer limited to `PC + 4`. A branch or jump changes the next PC inside the CPU.
+Both datasets come directly from `sklearn.datasets`; no CSV download is required.
 
-For `DecisionTreeClassifier` and `RandomForestClassifier`, the Python side converts the trained sklearn tree into a TinyRISC instruction program. Threshold decisions and the movement to the left/right child are now performed by **SLTI + BNE/JUMP instructions executing inside TinyRISC**. The test harness no longer chooses tree branches.
+## Experiment flow
 
 ```text
-sklearn tree
-     ↓ export nodes
-TinyRISC program
-     ↓
+Choose real dataset
+        ↓
+TRAIN ALL MODELS on normal computer
+        ↓
+scikit-learn
+  Logistic Regression
+  Decision Tree
+  Random Forest
+  MLPClassifier
+        ↓
+Export / quantize model parameters
+        ↓
+Compile model to TinyRISC instructions
+        ↓
 Instruction Memory
-     ↓
- PC → Fetch → Decoder → Compare
- ↑                         ↓
- └──── BEQ / BNE / JUMP ───┘
-     ↓
-Prediction
+        ↓
+RUN BATCH INFERENCE
+        ↓
+Same held-out test samples
+   ┌───────────────┴───────────────┐
+   ↓                               ↓
+sklearn / host CPU          TinyRISC / SystemVerilog
+   ↓                               ↓
+predictions + ms            predictions + CPU cycles
+   └───────────────┬───────────────┘
+                   ↓
+        accuracy + agreement
 ```
 
-## Training vs inference
+Training uses a stratified 70/30 train/test split. Batch inference is run on the **held-out test set**, not the training samples.
 
-```text
-Dataset
-   ↓
-scikit-learn on host CPU
-   ↓
-TRAIN
-   ↓
-export weights / thresholds / tree nodes
-   ↓
-compile to TinyRISC instructions
-   ↓
-Instruction Memory
-   ↓
-TinyRISC SystemVerilog CPU
-   ↓
-INFERENCE
-```
+## Batch selection
 
-The UI compares the prediction produced by sklearn on the computer with the prediction produced by the TinyRISC CPU.
+The UI has a `Max / class` field. For example:
 
-## CPU learning path
+- Breast Cancer, `25` → up to 25 malignant + 25 benign = 50 samples.
+- Iris, `25` → up to 25 setosa + 25 versicolor + 25 virginica = 75 samples.
+
+The exact same batch is sent to sklearn and to TinyRISC.
+
+## CPU LEGO path
 
 ```text
 AND → MUX → Register → Counter/PC → Instruction Memory → ALU
-    → Register File → Decoder → BEQ/BNE/JUMP → Mini CPU
+    → Register File → Decoder → BEQ/BNE/JUMP → Tiny CPU
 ```
 
-The CPU supports the small instruction subset needed by the demos: integer add, multiply, compare, arithmetic shift, branches and jumps.
+TinyRISC includes instruction memory and CPU control flow. Decision Tree and Random Forest branches execute inside the CPU using compare + `BEQ/BNE/JUMP`. Iris multiclass inference is supported: Logistic Regression and MLP calculate class scores and perform argmax; Random Forest counts votes by class.
 
-## ML models
+## Models
 
-- **Logistic Regression** — weights + bias compiled to multiply/add/compare instructions
-- **Decision Tree** — thresholds + nodes compiled to compare + branch/jump instructions
-- **Random Forest** — each tree runs as CPU control flow; votes are accumulated and majority is computed in TinyRISC
-- **MLP Classifier** — layer weights/biases compiled to multiply/add/ReLU control flow
+- **Logistic Regression** — class score dot products + sign/argmax.
+- **Decision Tree** — threshold comparisons + CPU branches.
+- **Random Forest** — several tree programs + class voting + argmax.
+- **MLP Classifier** — matrix multiply + ReLU + output scores + sign/argmax.
 
-Generated instruction-memory images are written to:
+## UI workflow
 
-```text
-generated/logistic_regression.mem
-generated/decision_tree.mem
-generated/random_forest.mem
-generated/mlp_classifier.mem
-```
+The custom one-page UI intentionally has two main buttons:
+
+1. **TRAIN ALL MODELS** — choose Breast Cancer or Iris, train all four sklearn models and show held-out test accuracy + training time.
+2. **RUN BATCH INFERENCE** — choose maximum samples per class and compare sklearn predictions against TinyRISC predictions.
+
+Per model, the UI shows:
+
+- sklearn test accuracy;
+- TinyRISC batch accuracy;
+- sklearn ↔ TinyRISC prediction agreement;
+- mismatch count;
+- real sklearn inference wall-clock time;
+- TinyRISC total / average / min / max simulated CPU cycles.
+
+Host milliseconds and TinyRISC cycles are deliberately kept as different units. TinyRISC is a simulated teaching CPU, not a physical chip.
 
 ## Run with Docker Compose
 
-Open Docker Desktop and from Windows CMD run:
+Open Docker Desktop. From Windows CMD:
 
 ```cmd
 docker compose up --build
@@ -90,60 +102,39 @@ Open:
 http://localhost:8080
 ```
 
-Press **RUN ALL**. The UI first shows sklearn training accuracy, then loads each model program into TinyRISC Instruction Memory and compares sklearn prediction with the SystemVerilog CPU prediction.
+Then:
 
-Run everything without the UI:
+1. choose **Breast Cancer** or **Iris**;
+2. click **TRAIN ALL MODELS**;
+3. choose `Max / class`;
+4. click **RUN BATCH INFERENCE**.
+
+Run everything from the command line using the default Breast Cancer dataset:
 
 ```cmd
 docker compose run --rm tiny-risc-ai sh scripts/run_all.sh
 ```
 
-Run only CPU block tests:
+Train Iris explicitly:
+
+```cmd
+docker compose run --rm tiny-risc-ai python python/train_models.py --dataset iris
+```
+
+Then run a balanced batch:
+
+```cmd
+docker compose run --rm tiny-risc-ai python python/run_batch_benchmark.py --max-per-class 25
+```
+
+Run only the SystemVerilog CPU block tests:
 
 ```cmd
 docker compose run --rm tiny-risc-ai sh scripts/run_sv_tests.sh
 ```
 
-Stop:
+Stop the app:
 
 ```cmd
 docker compose down
 ```
-
-## Important interpretation
-
-TinyRISC is a teaching CPU in simulation, not a physical chip. `cycles` are simulated CPU instruction cycles. They should not be compared directly with host-computer wall-clock milliseconds.
-
-## Two-step UI workflow: training, then batch inference
-
-The custom one-page UI now separates the experiment into two explicit phases:
-
-1. **TRAIN ALL MODELS** — trains Logistic Regression, Decision Tree, Random Forest and MLPClassifier with scikit-learn on the normal host CPU. The UI shows training accuracy and measured training wall-clock time.
-2. **RUN BATCH INFERENCE** — the user chooses **Max / class** (1–100). The app selects up to that many examples from each class and runs the *same samples* through:
-   - the original scikit-learn model on the host computer;
-   - the TinyRISC SystemVerilog CPU, using the exported/quantized model and its Instruction Memory program.
-
-The batch result reports, per model:
-
-- prediction agreement between sklearn and TinyRISC;
-- sklearn accuracy and TinyRISC accuracy against the labels;
-- mismatch count;
-- real sklearn inference wall-clock time;
-- TinyRISC total / average / min / max simulated CPU cycles;
-- simulator wall-clock time is collected internally but is **not** presented as hardware latency.
-
-For a binary dataset, `Max / class = 25` means at most 25 class-0 examples + 25 class-1 examples = up to 50 inference samples.
-
-### Run with Docker Compose
-
-```cmd
-docker compose up --build
-```
-
-Open:
-
-```text
-http://localhost:8080
-```
-
-Then click **1. TRAIN ALL MODELS**, set **Max / class**, and click **2. RUN BATCH INFERENCE**.

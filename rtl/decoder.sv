@@ -47,6 +47,7 @@ module decoder(
                         {7'b0000000,3'b110}: alu_op=4'd3; // OR
                         {7'b0000000,3'b100}: alu_op=4'd4; // XOR
                         {7'b0000001,3'b000}: alu_op=4'd5; // MUL (M-extension style)
+                        {7'b0000000,3'b010}: alu_op=4'd6; // SLT
                         default: begin alu_op=4'd0; reg_write=1'b0; end
                     endcase
                 end

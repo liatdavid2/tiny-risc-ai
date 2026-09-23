@@ -62,7 +62,7 @@ def main():
     if not artifacts.exists():
         raise SystemExit('Train models first.')
     with artifacts.open('rb') as f: data=pickle.load(f)
-    X,y,QX=data['X'],data['y'],data['QX']; models=data['models']
+    X,y,QX=data['X_test'],data['y_test'],data['Q_test']; models=data['models']
     idx=balanced_indices(y,max_per_class)
     Xb,yb,Qb=X[idx],y[idx],QX[idx]
     class_counts={str(int(c)):int(np.sum(yb==c)) for c in np.unique(yb)}
@@ -86,7 +86,7 @@ def main():
             'simulator_wall_ms':hw['simulation_wall_ms'],
             'mismatches':int(np.sum(cpu_pred!=host_pred)),
         })
-    payload={'max_per_class':max_per_class,'samples':int(len(idx)),'class_counts':class_counts,'models':results,
+    payload={'dataset':data.get('dataset'),'class_names':data.get('class_names',[]),'max_per_class':max_per_class,'samples':int(len(idx)),'class_counts':class_counts,'models':results,
              'note':'Host time is real sklearn wall-clock inference time. TinyRISC execution is reported in simulated CPU cycles; simulator wall time is not hardware latency.'}
     (OUT/'batch_benchmark.json').write_text(json.dumps(payload,indent=2))
     print(json.dumps(payload,indent=2))

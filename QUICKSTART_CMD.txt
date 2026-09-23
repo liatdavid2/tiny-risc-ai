@@ -1,27 +1,28 @@
 TinyRISC-AI — Windows CMD quick start
 
-1. Start Docker Desktop.
-2. Open CMD in the repo folder.
-3. Build and start:
+1) Open Docker Desktop.
 
+2) In CMD, enter the repository:
+   cd C:\Users\YOUR_USER\Documents\GitHub\tiny-risc-ai
+
+3) Build + start:
    docker compose up --build
 
-4. Open:
-
+4) Open:
    http://localhost:8080
 
-5. Press RUN ALL.
+5) In the UI:
+   - Dataset: Breast Cancer (binary) OR Iris (3-class)
+   - Click 1. TRAIN ALL MODELS
+   - Set Max / class
+   - Click 2. RUN BATCH INFERENCE
 
-The flow is:
-scikit-learn training -> export model -> compile TinyRISC instructions -> load Instruction Memory -> execute inference on TinyRISC CPU.
+No synthetic dataset is used.
 
-Decision Tree and Random Forest control flow is executed inside TinyRISC with BEQ/BNE/JUMP.
-
-CLI full run:
-   docker compose run --rm tiny-risc-ai sh scripts/run_all.sh
-
-CPU tests:
-   docker compose run --rm tiny-risc-ai sh scripts/run_sv_tests.sh
+CLI examples:
+   docker compose run --rm tiny-risc-ai python python/train_models.py --dataset breast_cancer
+   docker compose run --rm tiny-risc-ai python python/train_models.py --dataset iris
+   docker compose run --rm tiny-risc-ai python python/run_batch_benchmark.py --max-per-class 25
 
 Stop:
    docker compose down

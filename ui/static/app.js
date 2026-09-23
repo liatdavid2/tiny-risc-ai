@@ -6,6 +6,10 @@ const names = {
   mlp_classifier:'MLP Classifier'
 };
 const order = Object.keys(names);
+const datasetDescriptions = {
+  breast_cancer:'Breast Cancer Wisconsin · real binary dataset · TinyRISC v1 uses 4 real features (mean radius, texture, perimeter, area).',
+  iris:'Iris · real 3-class dataset · all 4 original features are used.'
+};
 function setStatus(t){ $('status').textContent=t; }
 function state(id,text,kind=''){ const e=$(id); e.textContent=text; e.className='state '+kind; }
 async function post(url,body={}){
@@ -14,32 +18,42 @@ async function post(url,body={}){
 }
 function renderTraining(data){
   const box=$('trainingResults'); box.classList.remove('muted');
-  box.innerHTML=order.map(k=>{ const m=data.models[k]; return `<div class="model-card"><b>${names[k]}</b><span>Training accuracy</span><strong>${(m.accuracy*100).toFixed(1)}%</strong><small>Train time ${m.train_ms.toFixed(1)} ms</small></div>`; }).join('');
+  $('datasetInfo').textContent = `${data.dataset_label} · ${data.n_classes} classes · features: ${data.features_used.join(', ')}`;
+  $('datasetShape').textContent = `${data.rows} rows · ${data.features_used.length} features`;
+  box.innerHTML=order.map(k=>{ const m=data.models[k]; return `<div class="model-card"><b>${names[k]}</b><span>Test accuracy</span><strong>${(m.accuracy*100).toFixed(1)}%</strong><small>Train time ${m.train_ms.toFixed(1)} ms</small></div>`; }).join('');
 }
 function pct(v){ return (v*100).toFixed(1)+'%'; }
 function renderBatch(data){
-  const s=$('batchSummary').children;
-  s[0].querySelector('strong').textContent=data.samples;
-  s[1].querySelector('strong').textContent=data.class_counts['0'] ?? 0;
-  s[2].querySelector('strong').textContent=data.class_counts['1'] ?? 0;
+  const summary=$('batchSummary');
+  const classCards=Object.entries(data.class_counts).map(([c,n])=>{
+    const label=(data.class_names && data.class_names[Number(c)]) || `Class ${c}`;
+    return `<div><span>${label}</span><strong>${n}</strong></div>`;
+  }).join('');
+  summary.innerHTML=`<div><span>Samples</span><strong>${data.samples}</strong></div>${classCards}`;
   const by=Object.fromEntries(data.models.map(x=>[x.model,x]));
   document.querySelectorAll('.batch-row').forEach(row=>{
     const m=by[row.dataset.model], cells=row.querySelectorAll('div');
-    cells[0].innerHTML=`<strong>${pct(m.agreement)}</strong><small>agreement<br>CPU acc ${pct(m.cpu_accuracy)} · host acc ${pct(m.host_accuracy)}<br>${m.mismatches} mismatches</small>`;
+    cells[0].innerHTML=`<strong>${pct(m.agreement)}</strong><small>agreement<br>TinyRISC acc ${pct(m.cpu_accuracy)} · sklearn acc ${pct(m.host_accuracy)}<br>${m.mismatches} mismatches</small>`;
     cells[1].innerHTML=`<strong>${m.host_inference_ms.toFixed(3)} ms</strong><small>${m.host_avg_us_per_sample.toFixed(2)} µs / sample</small>`;
     cells[2].innerHTML=`<strong>${m.cpu_avg_cycles_per_sample.toFixed(1)} cycles</strong><small>${m.cpu_total_cycles} total<br>${m.cpu_min_cycles}–${m.cpu_max_cycles} / sample</small>`;
     row.classList.toggle('match',m.agreement===1); row.classList.toggle('mismatch',m.agreement<1);
   });
 }
+$('datasetSelect').onchange=()=>{
+  $('datasetInfo').textContent=datasetDescriptions[$('datasetSelect').value];
+  state('trainState','waiting',''); state('inferState','waiting','');
+  setStatus('Dataset changed. Train all models before running batch inference.');
+};
 $('trainBtn').onclick=async()=>{
   $('trainBtn').disabled=true; $('batchBtn').disabled=true;
-  try{ state('trainState','running…','running'); setStatus('Training Logistic Regression, Decision Tree, Random Forest and MLP on the computer…'); const d=await post('/api/train'); if(!d.ok) throw new Error(d.output||'Training failed'); renderTraining(d.data); state('trainState','done ✓','done'); state('inferState','ready',''); setStatus('Training complete. Choose maximum samples per class and run batch inference.'); }
+  const dataset=$('datasetSelect').value;
+  try{ state('trainState','running…','running'); setStatus(`Training all four models on ${dataset}…`); const d=await post('/api/train',{dataset}); if(!d.ok) throw new Error(d.output||'Training failed'); renderTraining(d.data); state('trainState','done ✓','done'); state('inferState','ready',''); setStatus('Training complete. Choose maximum samples per class and run batch inference.'); }
   catch(e){ state('trainState','error','warn'); setStatus('ERROR: '+e.message); }
   finally{ $('trainBtn').disabled=false; $('batchBtn').disabled=false; }
 };
 $('batchBtn').onclick=async()=>{
   $('batchBtn').disabled=true;
-  try{ const n=Math.max(1,Math.min(100,parseInt($('maxPerClass').value||'25',10))); $('maxPerClass').value=n; state('inferState','running…','running'); setStatus(`Running up to ${n} examples per class through sklearn and the TinyRISC SystemVerilog CPU…`); const d=await post('/api/batch-infer',{max_per_class:n}); if(!d.ok) throw new Error(d.output||'Batch inference failed'); renderBatch(d.data); state('inferState','done ✓','done'); setStatus(`Batch complete: ${d.data.samples} samples. Compare agreement, accuracy, host time and TinyRISC cycles.`); }
+  try{ const n=Math.max(1,Math.min(100,parseInt($('maxPerClass').value||'25',10))); $('maxPerClass').value=n; state('inferState','running…','running'); setStatus(`Running up to ${n} held-out test examples per class through sklearn and TinyRISC…`); const d=await post('/api/batch-infer',{max_per_class:n}); if(!d.ok) throw new Error(d.output||'Batch inference failed'); renderBatch(d.data); state('inferState','done ✓','done'); setStatus(`Batch complete: ${d.data.samples} samples. Compare agreement, accuracy, host time and TinyRISC cycles.`); }
   catch(e){ state('inferState','error','warn'); setStatus('ERROR: '+e.message); }
   finally{ $('batchBtn').disabled=false; }
 };

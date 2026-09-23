@@ -39,6 +39,7 @@ def j_type(rd, offset):
 
 ADD=lambda rd,a,b:r_type(rd,a,b,0,0)
 MUL=lambda rd,a,b:r_type(rd,a,b,0,1)
+SLT=lambda rd,a,b:r_type(rd,a,b,2,0)
 ADDI=lambda rd,a,imm:i_type(rd,a,imm,0)
 SLTI=lambda rd,a,imm:i_type(rd,a,imm,2)
 SRAI=lambda rd,a,sh:i_type(rd,a,sh,5)
@@ -97,6 +98,18 @@ def ensure_imm12(v, what='immediate'):
     return int(v)
 
 
+
+def emit_load_const(p, rd, value):
+    """Load an arbitrary teaching-scale integer using one or more ADDI instructions."""
+    value=int(value)
+    if value == 0:
+        p.emit(ADDI(rd,0,0)); return
+    remaining=value; first=True
+    while remaining != 0:
+        chunk=max(-2048,min(2047,remaining))
+        p.emit(ADDI(rd,0 if first else rd,chunk))
+        remaining -= chunk; first=False
+
 def load_inputs(p, values):
     for i,v in enumerate(values):
         p.emit(ADDI(1+i,0,ensure_imm12(v,'input')))
@@ -114,106 +127,119 @@ def emit_binary_sign_prediction(p, score_reg=10, pred_reg=31):
     p.label(done)
 
 
+def emit_argmax(p, score_regs, pred_reg=31):
+    """Argmax with deterministic lowest-class tie breaking."""
+    if len(score_regs) == 1:
+        emit_binary_sign_prediction(p, score_regs[0], pred_reg)
+        return
+    best_reg = 28
+    cmp_reg = 30
+    p.emit(ADD(best_reg, score_regs[0], 0))
+    p.emit(ADDI(pred_reg, 0, 0))
+    for cls, reg in enumerate(score_regs[1:], start=1):
+        skip = p.unique(f'argmax_skip_{cls}')
+        p.emit(SLT(cmp_reg, best_reg, reg))  # 1 only if new score is strictly greater
+        p.beq(cmp_reg, 0, skip)
+        p.emit(ADD(best_reg, reg, 0))
+        p.emit(ADDI(pred_reg, 0, cls))
+        p.label(skip)
+
+
 def build_logistic(meta):
-    p=Program(); x=meta['sample_int8']; w=meta['exported']['weights_int8']; b=meta['exported']['bias_int32']
+    p=Program(); x=meta['sample_int8']; W=meta['exported']['weights_int8']; B=meta['exported']['bias_int32']
     load_inputs(p,x)
-    for i,v in enumerate(w): p.emit(ADDI(5+i,0,ensure_imm12(v,'weight')))
-    p.emit(ADDI(20,0,ensure_imm12(b,'bias')))
-    p.emit(ADDI(10,0,0))
-    for i in range(4):
-        p.emit(MUL(11,1+i,5+i))
-        p.emit(ADD(10,10,11))
-    p.emit(ADD(10,10,20))
-    emit_binary_sign_prediction(p)
+    score_regs=[]
+    for c, row in enumerate(W):
+        score=21+c; score_regs.append(score)
+        p.emit(ADDI(score,0,0))
+        for i,w in enumerate(row):
+            p.emit(ADDI(5,0,ensure_imm12(w,'weight')))
+            p.emit(MUL(11,1+i,5))
+            p.emit(ADD(score,score,11))
+        emit_load_const(p,20,B[c])
+        p.emit(ADD(score,score,20))
+    emit_argmax(p,score_regs)
     p.emit(HALT)
     return p.finish()
 
 
-def emit_tree_control_flow(p, nodes, node, done_label, vote_reg=None, prefix='tree'):
+def emit_tree_control_flow(p, nodes, node, done_label, prefix='tree'):
     """Compile a sklearn tree into actual TinyRISC branches and jumps."""
-    here=f'{prefix}_node_{node}_{p.unique("n")}'
-    p.label(here)
     n=nodes[node]
     if n['leaf']:
-        cls=int(n['class'])
-        p.emit(ADDI(31,0,cls))
-        if vote_reg is not None:
-            p.emit(ADD(vote_reg,vote_reg,31))
+        p.emit(ADDI(31,0,int(n['class'])))
         p.jump(done_label)
         return
-
     feat=int(n['feature']); thr=int(n['threshold_int8'])
-    left_label=p.unique(f'{prefix}_left')
-    right_label=p.unique(f'{prefix}_right')
-
-    # sklearn condition is x[feature] <= threshold. Integer equivalent: x < threshold+1.
+    left_label=p.unique(f'{prefix}_left'); right_label=p.unique(f'{prefix}_right')
     p.emit(SLTI(30,1+feat,ensure_imm12(thr+1,'tree threshold+1')))
     p.bne(30,0,left_label)
     p.jump(right_label)
-
     p.label(left_label)
-    emit_tree_control_flow(p,nodes,int(n['left']),done_label,vote_reg,prefix)
+    emit_tree_control_flow(p,nodes,int(n['left']),done_label,prefix)
     p.label(right_label)
-    emit_tree_control_flow(p,nodes,int(n['right']),done_label,vote_reg,prefix)
+    emit_tree_control_flow(p,nodes,int(n['right']),done_label,prefix)
 
 
 def build_decision_tree(meta):
     p=Program(); load_inputs(p,meta['sample_int8'])
     done='tree_done'
-    emit_tree_control_flow(p,meta['exported']['nodes'],0,done,None,'dt')
+    emit_tree_control_flow(p,meta['exported']['nodes'],0,done,'dt')
     p.label(done); p.emit(HALT)
     return p.finish()
 
 
 def build_random_forest(meta):
     p=Program(); load_inputs(p,meta['sample_int8'])
-    p.emit(ADDI(25,0,0)) # votes for class 1
-    trees=meta['exported'].get('trees',[])
+    trees=meta['exported'].get('trees',[]); n_classes=int(meta.get('n_classes',2))
     if not trees: raise RuntimeError('RandomForest export has no trees')
+    vote_regs=[24+i for i in range(n_classes)]
+    for r in vote_regs: p.emit(ADDI(r,0,0))
     for ti,t in enumerate(trees):
-        done=f'tree_{ti}_done'
-        emit_tree_control_flow(p,t['nodes'],0,done,25,f'rf{ti}')
+        done=f'tree_{ti}_done'; after=f'tree_{ti}_vote_done'
+        emit_tree_control_flow(p,t['nodes'],0,done,f'rf{ti}')
         p.label(done)
-    majority=(len(trees)//2)+1
-    pred0='forest_pred0'; end='forest_end'
-    p.emit(SLTI(30,25,ensure_imm12(majority,'majority')))
-    p.bne(30,0,pred0)
-    p.emit(ADDI(31,0,1)); p.jump(end)
-    p.label(pred0); p.emit(ADDI(31,0,0))
-    p.label(end); p.emit(HALT)
+        # x31 contains this tree's class. Increment exactly one vote register.
+        for cls,r in enumerate(vote_regs):
+            hit=p.unique(f'tree{ti}_class{cls}')
+            p.emit(ADDI(29,0,cls))
+            p.beq(31,29,hit)
+            if cls == n_classes-1:
+                p.jump(after)
+            else:
+                nxt=p.unique(f'tree{ti}_nextclass')
+                p.jump(nxt); p.label(hit); p.emit(ADDI(r,r,1)); p.jump(after); p.label(nxt)
+                continue
+            p.label(hit); p.emit(ADDI(r,r,1)); p.jump(after)
+        p.label(after)
+    emit_argmax(p,vote_regs)
+    p.emit(HALT)
     return p.finish()
 
 
 def build_mlp(meta):
     ex=meta['exported']; x=meta['sample_int8']; W1=ex['w1_int8']; b1=ex['b1_int32']; W2=ex['w2_int8']; b2=ex['b2_int32']; sh=int(ex['hidden_shift'])
     p=Program(); load_inputs(p,x)
-
-    for j in range(6):
+    hidden=len(b1); out_dim=len(b2)
+    for j in range(hidden):
         p.emit(ADDI(10,0,0))
         for i in range(4):
             p.emit(ADDI(5,0,ensure_imm12(W1[i][j],'MLP weight')))
-            p.emit(MUL(11,1+i,5))
-            p.emit(ADD(10,10,11))
-        p.emit(ADDI(20,0,ensure_imm12(b1[j],'MLP hidden bias')))
-        p.emit(ADD(10,10,20))
-
+            p.emit(MUL(11,1+i,5)); p.emit(ADD(10,10,11))
+        emit_load_const(p,20,b1[j]); p.emit(ADD(10,10,20))
         zero=p.unique(f'relu{j}_zero'); after=p.unique(f'relu{j}_after')
-        p.emit(SLTI(30,10,0))
-        p.bne(30,0,zero)
-        p.emit(ADD(12+j,10,0))
-        p.jump(after)
-        p.label(zero); p.emit(ADDI(12+j,0,0))
-        p.label(after)
+        p.emit(SLTI(30,10,0)); p.bne(30,0,zero)
+        p.emit(ADD(12+j,10,0)); p.jump(after)
+        p.label(zero); p.emit(ADDI(12+j,0,0)); p.label(after)
         if sh>0: p.emit(SRAI(12+j,12+j,sh))
-
-    p.emit(ADDI(10,0,0))
-    for j in range(6):
-        p.emit(ADDI(5,0,ensure_imm12(W2[j],'MLP output weight')))
-        p.emit(MUL(11,12+j,5))
-        p.emit(ADD(10,10,11))
-    p.emit(ADDI(20,0,ensure_imm12(b2,'MLP output bias')))
-    p.emit(ADD(10,10,20))
-    emit_binary_sign_prediction(p)
+    score_regs=[]
+    for c in range(out_dim):
+        score=21+c; score_regs.append(score); p.emit(ADDI(score,0,0))
+        for j in range(hidden):
+            p.emit(ADDI(5,0,ensure_imm12(W2[j][c],'MLP output weight')))
+            p.emit(MUL(11,12+j,5)); p.emit(ADD(score,score,11))
+        emit_load_const(p,20,b2[c]); p.emit(ADD(score,score,20))
+    emit_argmax(p,score_regs)
     p.emit(HALT)
     return p.finish()
 
