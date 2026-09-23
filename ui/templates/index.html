@@ -42,23 +42,24 @@
   </section>
 
   <section class="arch-lab">
-    <div class="arch-title"><b>ARCHITECTURE LEGO</b><span>Keep the CPU core, then snap on a parallel MAC block and compare projected cycles.</span></div>
+    <div class="arch-title"><b>ARCHITECTURE LEGO</b><span>Choose complete CPU architectures to compare. Base TinyRISC stays as the reference; optional MAC architectures can be added or removed.</span></div>
     <div class="arch-builder">
-      <div class="mini-brick fixed">CORE CPU<small>PC · IMEM · RF · ALU · BRANCH</small></div>
+      <div class="mini-brick fixed">BASE CORE<small>PC · IMEM · RF · ALU · BRANCH</small></div>
       <span class="plus">+</span>
-      <label class="mini-brick selectable">MAC BLOCK
-        <select id="macLanes">
-          <option value="0">none</option>
-          <option value="2">2× MAC</option>
-          <option value="4" selected>4× MAC</option>
-          <option value="8">8× MAC</option>
+      <label class="arch-picker">ADD ARCHITECTURE
+        <select id="architecturePreset">
+          <option value="">Choose architecture…</option>
+          <option value="2">TinyRISC + 2× MAC</option>
+          <option value="4">TinyRISC + 4× MAC</option>
+          <option value="8">TinyRISC + 8× MAC</option>
         </select>
       </label>
-      <button id="addArchBtn" class="small-action">+ ADD ARCHITECTURE</button>
+      <button id="addArchBtn" class="small-action">+ ADD</button>
       <div id="archChips" class="arch-chips"></div>
       <button id="archCompareBtn" class="primary lego-run">3. COMPARE ARCHITECTURES</button>
     </div>
-    <div id="archResults" class="arch-results muted"><span>Run batch inference first, then compare the same workload across your LEGO architectures.</span></div>
+    <div class="arch-rule"><b>Logical rule:</b> one architecture has one MAC width. Add 2×, 4× or 8× MAC as separate designs; remove any optional design with ×. The Base CPU is always kept for a fair reference.</div>
+    <div id="archResults" class="arch-results muted"><span>Run batch inference first, then compare the same workload across your selected architectures.</span></div>
   </section>
 
   <main class="workspace">

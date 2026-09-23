@@ -60,38 +60,68 @@ $('batchBtn').onclick=async()=>{
 $('testsBtn').onclick=async()=>{ setStatus('Running SystemVerilog unit tests…'); try{const d=await post('/api/sv-tests'); setStatus(d.ok?'CPU block tests passed ✓':'CPU block tests failed');}catch(e){setStatus('ERROR: '+e.message);} };
 
 // ---- Architecture LEGO explorer ----
+// Base TinyRISC is a fixed reference architecture. Optional architectures are
+// complete alternative designs: the same core plus one mutually-exclusive MAC width.
 let architectures = [
-  {name:'Base TinyRISC', mac_lanes:0},
-  {name:'TinyRISC + 2× MAC', mac_lanes:2},
-  {name:'TinyRISC + 4× MAC', mac_lanes:4}
+  {name:'Base TinyRISC', mac_lanes:0}
 ];
+const ARCH_PRESETS = {
+  2:{name:'TinyRISC + 2× MAC', mac_lanes:2},
+  4:{name:'TinyRISC + 4× MAC', mac_lanes:4},
+  8:{name:'TinyRISC + 8× MAC', mac_lanes:8}
+};
 function renderArchChips(){
   const box=$('archChips');
-  box.innerHTML=architectures.map((a,i)=>`<div class="arch-chip"><b>${a.name}</b>${i===0?'':`<button data-i="${i}" title="remove">×</button>`}</div>`).join('');
-  box.querySelectorAll('button').forEach(b=>b.onclick=()=>{architectures.splice(Number(b.dataset.i),1);renderArchChips();});
+  box.innerHTML=architectures.map((a,i)=>{
+    const fixed=a.mac_lanes===0;
+    return `<div class="arch-chip ${fixed?'fixed-chip':''}"><b>${a.name}</b>${fixed?'<small>reference</small>':`<button data-i="${i}" title="Remove this architecture">×</button>`}</div>`;
+  }).join('');
+  box.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const i=Number(b.dataset.i);
+    if(architectures[i] && architectures[i].mac_lanes!==0){
+      architectures.splice(i,1);
+      renderArchChips();
+      setStatus('Architecture removed. Compare again to refresh the results.');
+    }
+  });
 }
 renderArchChips();
 $('addArchBtn').onclick=()=>{
-  const lanes=Number($('macLanes').value);
-  const name=lanes===0?'Base TinyRISC':`TinyRISC + ${lanes}× MAC`;
-  if(!architectures.some(a=>a.mac_lanes===lanes)) architectures.push({name,mac_lanes:lanes});
-  architectures=architectures.slice(0,6); renderArchChips();
+  const select=$('architecturePreset');
+  const lanes=Number(select.value||0);
+  if(!ARCH_PRESETS[lanes]){
+    setStatus('Choose an architecture from the ADD ARCHITECTURE dropdown first.');
+    return;
+  }
+  if(architectures.some(a=>a.mac_lanes===lanes)){
+    setStatus(`${ARCH_PRESETS[lanes].name} is already in the comparison.`);
+    return;
+  }
+  architectures.push({...ARCH_PRESETS[lanes]});
+  architectures.sort((a,b)=>a.mac_lanes-b.mac_lanes);
+  renderArchChips();
+  select.value='';
+  setStatus(`${ARCH_PRESETS[lanes].name} added. You can add another design or compare architectures.`);
 };
 function renderArchitectureCompare(data){
   const box=$('archResults'); box.classList.remove('muted');
   const archs=data.architectures;
-  let html=`<div class="arch-cell head">MODEL</div>`+archs.map(a=>`<div class="arch-cell head">${a.name}</div>`).join('');
+  let html=`<div class="arch-cell head model-head">MODEL</div>`+archs.map(a=>`<div class="arch-cell head">${a.name}</div>`).join('');
   data.models.forEach(m=>{
     const vals=m.architectures.map(x=>x.avg_cycles), best=Math.min(...vals);
     html+=`<div class="arch-cell model">${names[m.model]}<small>${m.mac_ops_per_sample} MAC terms/sample</small></div>`;
-    m.architectures.forEach(v=>{ const cls=Math.abs(v.avg_cycles-best)<1e-9?'arch-cell best':'arch-cell'; html+=`<div class="${cls}"><b>${v.avg_cycles.toFixed(1)}</b> cycles<small>${v.speedup_vs_base.toFixed(2)}× vs base</small></div>`; });
+    m.architectures.forEach(v=>{
+      const cls=Math.abs(v.avg_cycles-best)<1e-9?'arch-cell best':'arch-cell';
+      html+=`<div class="${cls}"><b>${v.avg_cycles.toFixed(1)}</b> cycles<small>${v.speedup_vs_base.toFixed(2)}× vs base</small></div>`;
+    });
   });
+  box.style.gridTemplateColumns=`170px repeat(${Math.max(1,archs.length)}, minmax(130px, 1fr))`;
   box.innerHTML=html;
 }
 $('archCompareBtn').onclick=async()=>{
   $('archCompareBtn').disabled=true;
   try{
-    setStatus('Comparing LEGO architectures using the completed TinyRISC batch workload…');
+    setStatus('Comparing your selected LEGO architectures using the completed TinyRISC batch workload…');
     const d=await post('/api/architecture-compare',{architectures});
     if(!d.ok) throw new Error(d.output||'Architecture comparison failed');
     renderArchitectureCompare(d.data);

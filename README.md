@@ -151,3 +151,8 @@ After running batch inference, the UI can compare the exact same trained-model w
 The base cycle count comes from the real SystemVerilog TinyRISC batch run. Optional MAC blocks use a transparent architecture-cycle model: scalar `MUL + ADD` MAC terms are replaced by `ceil(MAC terms / lanes)` accelerator cycles. Decision Tree and Random Forest do not contain matrix/dot-product MAC work, so the MAC block intentionally does not speed them up.
 
 These values are **simulated/projected architecture cycles, not physical wall-clock chip latency**. Prediction accuracy/agreement is unchanged because the trained model and quantized arithmetic are unchanged.
+
+
+## Architecture LEGO selector
+
+The UI keeps **Base TinyRISC** as a fixed reference architecture. Use the **ADD ARCHITECTURE** dropdown to add `TinyRISC + 2× MAC`, `+4× MAC`, or `+8× MAC` as separate complete designs. Optional designs can be removed with the `×` button. A single design never stacks multiple MAC widths; each preset represents one logical alternative architecture.
