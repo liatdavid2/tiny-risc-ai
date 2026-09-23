@@ -1,0 +1,11 @@
+services:
+  tiny-risc-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tiny-risc-ai
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./results:/app/results
+    restart: unless-stopped

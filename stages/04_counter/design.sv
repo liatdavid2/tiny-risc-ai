@@ -1,0 +1,1 @@
+`include "../../rtl/counter.sv"
