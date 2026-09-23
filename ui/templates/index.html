@@ -1,113 +1,67 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TinyRISC-AI Lab</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TinyRISC-AI</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header class="hero">
-    <div>
-      <div class="eyebrow">FROM DIGITAL LOGIC TO AI HARDWARE</div>
-      <h1>TinyRISC-AI Lab</h1>
-      <p class="lead">A visual, beginner-friendly CPU simulator project. We build hardware blocks one by one, connect them into a Mini CPU, then add a custom AI dot-product accelerator.</p>
-    </div>
-    <div class="hero-badge">CPU-only PC<br><strong>No FPGA required</strong></div>
+<div class="app">
+  <header>
+    <div><b>TinyRISC-AI</b><span>Build a CPU → plug in sklearn inference hardware</span></div>
+    <div class="actions"><button id="testBtn">Test CPU blocks</button><button id="trainBtn">Train sklearn models</button></div>
   </header>
 
   <main>
-    <section class="panel purpose">
-      <div>
-        <h2>What did we build?</h2>
-        <p>First we describe hardware in <strong>SystemVerilog</strong>. Then <strong>Icarus Verilog</strong> simulates that hardware. Testbenches verify that each block behaves correctly. Finally, Python trains a tiny ML model and we compare ordinary CPU-style arithmetic with a dedicated simulated AI accelerator.</p>
+    <section class="lego">
+      <h2>1. Build the Mini CPU from LEGO-like blocks</h2>
+      <div class="blocks">
+        <div class="brick">AND<small>logic</small></div><div class="arrow">→</div>
+        <div class="brick">MUX<small>choose</small></div><div class="arrow">→</div>
+        <div class="brick">Register<small>store</small></div><div class="arrow">→</div>
+        <div class="brick">Counter<small>PC</small></div><div class="arrow">→</div>
+        <div class="brick">ALU<small>compute</small></div><div class="arrow">→</div>
+        <div class="brick">Registers<small>data</small></div><div class="arrow">→</div>
+        <div class="brick">Decoder<small>control</small></div>
       </div>
-      <div class="three-steps">
-        <div><span>1</span><b>RTL</b><small>Describe hardware</small></div>
-        <div><span>2</span><b>Simulation</b><small>Run virtual hardware</small></div>
-        <div><span>3</span><b>Verification</b><small>Check expected behavior</small></div>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="section-head">
-        <div><div class="eyebrow">LEARNING PATH</div><h2>How the CPU is built</h2></div>
-        <p>Each card is a mini-project. The later CPU reuses these same ideas as building blocks.</p>
-      </div>
-      <div class="timeline">
-        <article><div class="num">01</div><h3>AND Gate</h3><p>Our first logic circuit. Output is 1 only when both inputs are 1.</p><code>a &amp; b → y</code></article>
-        <article><div class="num">02</div><h3>MUX</h3><p>A selector. It chooses which input is allowed to continue.</p><code>sel ? b : a</code></article>
-        <article><div class="num">03</div><h3>Register</h3><p>A tiny memory cell. It updates its stored value on a clock edge.</p><code>clock → store d</code></article>
-        <article><div class="num">04</div><h3>Counter / PC</h3><p>A register that advances. In a CPU it becomes the Program Counter.</p><code>PC → PC + 1</code></article>
-        <article><div class="num">05</div><h3>ALU</h3><p>The calculator of the CPU: ADD, SUB, AND, OR and XOR.</p><code>A op B → result</code></article>
-        <article><div class="num">06</div><h3>Register File</h3><p>A small bank of registers that holds operands and results.</p><code>R1 + R2 → R3</code></article>
-        <article><div class="num">07</div><h3>Decoder</h3><p>Translates an instruction into control signals that tell the CPU what to do.</p><code>instruction → controls</code></article>
-        <article class="featured"><div class="num">08</div><h3>Mini CPU</h3><p>Now the blocks work together to fetch, decode and execute instructions.</p><code>fetch → decode → execute</code></article>
-        <article class="ai"><div class="num">09</div><h3>AI Accelerator</h3><p>A dedicated int8 dot-product block for ML-style multiply-and-accumulate work.</p><code>Σ xᵢwᵢ</code></article>
+      <div class="cpu">
+        <div class="cpu-title">MINI CPU</div>
+        <div class="pipe"><span>PC</span><i>→</i><span>Decoder</span><i>→</i><span>Register File</span><i>→</i><span>MUX</span><i>→</i><span>ALU</span><i>→</i><span>Write Back</span></div>
       </div>
     </section>
 
-    <section class="panel architecture">
-      <div class="section-head"><div><div class="eyebrow">ARCHITECTURE</div><h2>What happens inside the Mini CPU?</h2></div></div>
-      <div class="flow">
-        <div class="block"><b>Program Counter</b><span>Which instruction is next?</span></div>
-        <div class="arrow">→</div>
-        <div class="block"><b>Decoder</b><span>What does the instruction mean?</span></div>
-        <div class="arrow">→</div>
-        <div class="block"><b>Register File</b><span>Read the input values</span></div>
-        <div class="arrow">→</div>
-        <div class="block"><b>MUX + ALU</b><span>Choose operands and calculate</span></div>
-        <div class="arrow">→</div>
-        <div class="block"><b>Write Back</b><span>Store the result</span></div>
+    <section class="ml">
+      <div class="ml-head">
+        <div><h2>2. AI: train with sklearn, run inference in simulated hardware</h2><p>Training runs on the host CPU. We export learned parameters only. The prediction is executed by generated SystemVerilog in Icarus Verilog.</p></div>
+        <select id="model">
+          <option value="logistic_regression">Logistic Regression</option>
+          <option value="decision_tree">Decision Tree</option>
+          <option value="random_forest">Random Forest</option>
+          <option value="mlp_classifier">MLP Classifier</option>
+        </select>
       </div>
-      <div class="example">
-        <div><span class="tag">Example instruction</span><h3>ADD R3, R1, R2</h3></div>
-        <div class="equation">R1 = 10 &nbsp; + &nbsp; R2 = 20 &nbsp; → &nbsp; <strong>R3 = 30</strong></div>
+      <div class="ml-flow">
+        <div class="brick data">Dataset</div><div class="arrow">→</div>
+        <div class="brick sklearn">sklearn TRAIN</div><div class="arrow">→</div>
+        <div class="brick export" id="exportBrick">weights + bias</div><div class="arrow">→</div>
+        <div class="brick ai">SystemVerilog inference</div>
+        <button id="inferBtn">▶ Run inference</button>
       </div>
-    </section>
-
-    <section class="panel ai-panel">
-      <div class="section-head">
-        <div><div class="eyebrow">AI HARDWARE</div><h2>Where does the AI enter?</h2></div>
-        <p>The model is trained in Python. The simulator receives quantized weights and performs the inference arithmetic using simulated hardware.</p>
+      <div class="model-map"><span id="mapText">Dot product + bias + sign compare</span></div>
+      <div class="metrics">
+        <div><small>Train accuracy</small><b id="acc">—</b></div>
+        <div><small>sklearn expected</small><b id="expected">—</b></div>
+        <div><small>SystemVerilog prediction</small><b id="pred">—</b></div>
+        <div><small>CPU-style cycles*</small><b id="cpuCycles">—</b></div>
+        <div class="accent"><small>Specialized engine*</small><b id="hwCycles">—</b></div>
+        <div><small>Estimated speedup*</small><b id="speedup">—</b></div>
       </div>
-      <div class="ai-flow">
-        <div class="block"><b>Dataset</b><span>4 input features</span></div><div class="arrow">→</div>
-        <div class="block"><b>Python ML</b><span>Train logistic regression</span></div><div class="arrow">→</div>
-        <div class="block"><b>int8 Weights</b><span>Hardware-friendly values</span></div><div class="arrow">→</div>
-        <div class="split"><div><b>CPU-style path</b><span>MUL + ADD repeatedly</span></div><div><b>AI Accelerator</b><span>Parallel dot product</span></div></div>
-      </div>
-      <div class="formula">score = x₀w₀ + x₁w₁ + x₂w₂ + x₃w₃ + bias</div>
-    </section>
-
-    <section class="panel controls">
-      <div class="section-head"><div><div class="eyebrow">RUN THE PROJECT</div><h2>Live controls</h2></div><p>These buttons execute the real scripts in this repository.</p></div>
-      <div class="buttons">
-        <button data-action="sv-tests">1. Run hardware tests</button>
-        <button data-action="train">2. Train tiny ML model</button>
-        <button data-action="benchmark">3. Run CPU vs accelerator benchmark</button>
-      </div>
-      <pre id="console">Ready. Choose an action above.</pre>
-    </section>
-
-    <section class="panel results">
-      <div class="section-head"><div><div class="eyebrow">RESULTS</div><h2>What did the experiment show?</h2></div></div>
-      <div id="empty-state" class="empty">Train the model and run the benchmark to populate these results.</div>
-      <div id="result-grid" class="result-grid hidden">
-        <div class="metric"><span>Training accuracy</span><strong id="accuracy">—</strong><small>Python reference model</small></div>
-        <div class="metric"><span>CPU baseline</span><strong id="cpu-cycles">—</strong><small>estimated cycles</small></div>
-        <div class="metric accent"><span>AI accelerator</span><strong id="accel-cycles">—</strong><small>estimated cycles</small></div>
-        <div class="metric"><span>Estimated speedup</span><strong id="speedup">—</strong><small>architectural learning model</small></div>
-      </div>
-      <div id="bars" class="bars hidden">
-        <div><label>CPU-style arithmetic</label><div class="track"><div id="cpu-bar" class="bar cpu"></div></div></div>
-        <div><label>AI accelerator</label><div class="track"><div id="accel-bar" class="bar accel"></div></div></div>
-      </div>
-      <p class="note">The cycle comparison is an educational architectural estimate. It is not a measurement of real silicon wall-clock performance or power.</p>
+      <div class="note" id="note">* Cycle counts are teaching estimates; the prediction itself is executed by the SystemVerilog simulator.</div>
     </section>
   </main>
-
-  <footer>SystemVerilog + Icarus Verilog + Python + Flask • TinyRISC-AI</footer>
-  <script src="/static/app.js"></script>
+  <div id="toast">Ready</div>
+</div>
+<script src="/static/app.js"></script>
 </body>
 </html>

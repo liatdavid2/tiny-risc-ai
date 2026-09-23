@@ -1,44 +1,16 @@
-const consoleEl = document.getElementById('console');
-const buttons = [...document.querySelectorAll('button[data-action]')];
-
-async function api(path, method='GET') {
-  const r = await fetch(path, {method});
-  return await r.json();
-}
-
-function setBusy(busy) { buttons.forEach(b => b.disabled = busy); }
-
-function renderResults(payload) {
-  const model = payload?.model;
-  const bench = payload?.benchmark;
-  const hasAny = model || bench;
-  document.getElementById('empty-state').classList.toggle('hidden', !!hasAny);
-  document.getElementById('result-grid').classList.toggle('hidden', !hasAny);
-  document.getElementById('bars').classList.toggle('hidden', !bench);
-
-  if (model) document.getElementById('accuracy').textContent = (model.float_accuracy_train * 100).toFixed(1) + '%';
-  if (bench) {
-    document.getElementById('cpu-cycles').textContent = bench.baseline_cycles_est;
-    document.getElementById('accel-cycles').textContent = bench.accelerator_cycles_est;
-    document.getElementById('speedup').textContent = Number(bench.speedup_est).toFixed(2) + '×';
-    const max = Math.max(bench.baseline_cycles_est, bench.accelerator_cycles_est);
-    document.getElementById('cpu-bar').style.width = (100 * bench.baseline_cycles_est/max) + '%';
-    document.getElementById('accel-bar').style.width = (100 * bench.accelerator_cycles_est/max) + '%';
-  }
-}
-
-buttons.forEach(button => button.addEventListener('click', async () => {
-  const action = button.dataset.action;
-  consoleEl.textContent = 'Running ' + action + '...';
-  setBusy(true);
-  try {
-    const data = await api('/api/' + action, 'POST');
-    consoleEl.textContent = data.output || (data.ok ? 'Done.' : 'Failed.');
-    const results = await api('/api/results');
-    renderResults(results);
-  } catch (e) {
-    consoleEl.textContent = 'Error: ' + e;
-  } finally { setBusy(false); }
-}));
-
-api('/api/results').then(renderResults).catch(() => {});
+const $=id=>document.getElementById(id);
+const maps={
+  logistic_regression:['weights + bias','Dot product + bias + sign compare'],
+  decision_tree:['thresholds + nodes','Threshold compare + branch'],
+  random_forest:['multiple trees','Tree inference + majority voting'],
+  mlp_classifier:['layer weights','Matrix multiply + ReLU + output layer']
+};
+function status(s){$('toast').textContent=s}
+function resetMetrics(){['acc','expected','pred','cpuCycles','hwCycles','speedup'].forEach(x=>$(x).textContent='—')}
+function updateMap(){const v=$('model').value;$('exportBrick').textContent=maps[v][0];$('mapText').textContent=maps[v][1];resetMetrics()}
+async function post(url,body){status('Running…');const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):null});const d=await r.json();status(d.ok?'Done ✓':(d.output||'Failed'));return d}
+$('model').onchange=updateMap;
+$('trainBtn').onclick=async()=>{const d=await post('/api/train');if(d.data){const m=d.data.models[$('model').value];$('acc').textContent=(m.accuracy*100).toFixed(1)+'%';$('expected').textContent=m.sklearn_prediction}}
+$('inferBtn').onclick=async()=>{const name=$('model').value;const d=await post('/api/infer',{model:name});if(d.data){$('acc').textContent=(d.data.train_accuracy*100).toFixed(1)+'%';$('expected').textContent=d.data.expected;$('pred').textContent=d.data.prediction;$('cpuCycles').textContent=d.data.cycles.cpu_style;$('hwCycles').textContent=d.data.cycles.specialized_engine;$('speedup').textContent=d.data.speedup_est.toFixed(1)+'×';$('note').textContent='* '+d.data.cycles.explanation+' Prediction executed in SystemVerilog.'}}
+$('testBtn').onclick=()=>post('/api/sv-tests');
+updateMap();

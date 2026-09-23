@@ -175,3 +175,28 @@ prediction = score >= 0
 The SystemVerilog accelerator computes the four int8 multiply-accumulate terms. The Python benchmark compares this against a simple educational CPU execution model.
 
 **Important:** cycle counts are architectural estimates for learning. They are not measurements of physical silicon latency or power.
+
+## sklearn models -> SystemVerilog inference
+
+Training runs on the normal host CPU with scikit-learn. The learned model is exported, and inference is executed by a generated SystemVerilog hardware engine in Icarus Verilog.
+
+| Model | Exported from sklearn | Simulated hardware inference |
+|---|---|---|
+| LogisticRegression | weights + bias | dot product + compare |
+| DecisionTreeClassifier | thresholds + nodes | compare + branch |
+| RandomForestClassifier | multiple trees | tree inference + voting |
+| MLPClassifier | weights for each layer | matrix multiply + ReLU |
+
+Run all four model demos in Docker:
+
+```cmd
+docker compose run --rm tiny-risc-ai sh scripts/run_models.sh
+```
+
+Start the one-screen LEGO-style UI:
+
+```cmd
+docker compose up --build
+```
+
+Then open `http://localhost:8080`.

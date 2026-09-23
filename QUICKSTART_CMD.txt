@@ -1,21 +1,28 @@
-TinyRISC-AI - Docker Compose quick start (Windows CMD)
+TinyRISC-AI - Windows CMD quick start
 
-1) Make sure Docker Desktop is running.
+1) Start Docker Desktop.
 
-2) Open CMD:
-cd C:\Users\YOUR_USER\Documents\GitHub\tiny-risc-ai
+2) Open CMD in the repository folder:
+   cd C:\Users\YOUR_USER\Documents\GitHub\tiny-risc-ai
 
-3) Build + run:
-docker compose up --build
+3) Build and start the custom one-screen UI:
+   docker compose up --build
 
-4) Open browser:
-http://localhost:8080
+4) Open:
+   http://localhost:8080
 
-5) Run all hardware tests in another CMD:
-docker compose run --rm tiny-risc-ai sh scripts/run_sv_tests.sh
+The UI lets you:
+- test the CPU building blocks
+- train 4 sklearn models on the host CPU inside Docker
+- choose Logistic Regression / Decision Tree / Random Forest / MLP
+- export the learned parameters
+- run inference in generated SystemVerilog with Icarus Verilog
 
-6) Run AI training + benchmark:
-docker compose run --rm tiny-risc-ai sh scripts/run_ai_demo.sh
+Run all hardware tests + all four model inference demos from CMD:
+   docker compose run --rm tiny-risc-ai sh scripts/run_all.sh
 
-7) Stop:
-docker compose down
+Run only the ML hardware inference demos:
+   docker compose run --rm tiny-risc-ai sh scripts/run_models.sh
+
+Stop:
+   docker compose down
