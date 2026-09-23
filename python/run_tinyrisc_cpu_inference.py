@@ -262,9 +262,13 @@ def run_one(name):
         'sv_output':text.strip()
     }
 
-if not (OUT/'models_summary.json').exists():
-    subprocess.run([sys.executable,str(ROOT/'python'/'train_models.py')],cwd=ROOT,check=True)
-res=[run_one(n) for n in MODELS]
-(OUT/'cpu_inference_summary.json').write_text(json.dumps(res,indent=2))
-print(json.dumps(res,indent=2))
-raise SystemExit(0 if all(x['ok'] for x in res) else 1)
+def main():
+    if not (OUT/'models_summary.json').exists():
+        subprocess.run([sys.executable,str(ROOT/'python'/'train_models.py')],cwd=ROOT,check=True)
+    res=[run_one(n) for n in MODELS]
+    (OUT/'cpu_inference_summary.json').write_text(json.dumps(res,indent=2))
+    print(json.dumps(res,indent=2))
+    return 0 if all(x['ok'] for x in res) else 1
+
+if __name__ == '__main__':
+    raise SystemExit(main())

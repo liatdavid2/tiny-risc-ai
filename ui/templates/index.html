@@ -11,9 +11,13 @@
   <header class="topbar">
     <div>
       <h1>TinyRISC-AI Lab</h1>
-      <p>Train with scikit-learn → compile the learned model into instructions → execute inference inside our simulated CPU</p>
+      <p>Train sklearn on the computer → export the learned model → run batched inference on our SystemVerilog CPU</p>
     </div>
-    <button id="runAllBtn" class="run-all">▶ RUN ALL</button>
+    <div class="actions">
+      <button id="trainBtn" class="primary">1. TRAIN ALL MODELS</button>
+      <label class="batch-input">Max / class <input id="maxPerClass" type="number" min="1" max="100" value="25"></label>
+      <button id="batchBtn" class="primary accent">2. RUN BATCH INFERENCE</button>
+    </div>
   </header>
 
   <section class="cpu-strip">
@@ -21,7 +25,7 @@
     <div class="brick">AND<small>logic</small></div><b>+</b>
     <div class="brick">MUX<small>choose</small></div><b>+</b>
     <div class="brick">REG<small>store</small></div><b>+</b>
-    <div class="brick">PC<small>next instruction</small></div><b>+</b>
+    <div class="brick">PC<small>next</small></div><b>+</b>
     <div class="brick new-brick">IMEM<small>program</small></div><b>+</b>
     <div class="brick">ALU<small>compute</small></div><b>+</b>
     <div class="brick">REG FILE<small>data</small></div><b>+</b>
@@ -35,43 +39,47 @@
     <section class="phase training">
       <div class="phase-title">
         <span class="num">1</span>
-        <div><h2>TRAINING — normal computer</h2><p>scikit-learn trains each model on the host CPU. We export weights, thresholds and tree nodes.</p></div>
+        <div><h2>TRAINING — normal computer</h2><p>All four models are trained with scikit-learn. This phase does not run on TinyRISC.</p></div>
         <span id="trainState" class="state">waiting</span>
       </div>
       <div class="flow compact">
         <div class="node">Dataset<br><small>800 × 4</small></div><span>→</span>
         <div class="node host">scikit-learn<br><small>HOST CPU</small></div><span>→</span>
-        <div class="node">Export<br><small>model parameters</small></div>
+        <div class="node">Export<br><small>weights / trees</small></div>
       </div>
       <div id="trainingResults" class="model-grid muted">
-        <div class="model-card"><b>Logistic Regression</b><span>Accuracy</span><strong>—</strong></div>
-        <div class="model-card"><b>Decision Tree</b><span>Accuracy</span><strong>—</strong></div>
-        <div class="model-card"><b>Random Forest</b><span>Accuracy</span><strong>—</strong></div>
-        <div class="model-card"><b>MLP Classifier</b><span>Accuracy</span><strong>—</strong></div>
+        <div class="model-card"><b>Logistic Regression</b><span>Accuracy</span><strong>—</strong><small>Train time —</small></div>
+        <div class="model-card"><b>Decision Tree</b><span>Accuracy</span><strong>—</strong><small>Train time —</small></div>
+        <div class="model-card"><b>Random Forest</b><span>Accuracy</span><strong>—</strong><small>Train time —</small></div>
+        <div class="model-card"><b>MLP Classifier</b><span>Accuracy</span><strong>—</strong><small>Train time —</small></div>
       </div>
     </section>
 
     <section class="phase inference">
       <div class="phase-title">
         <span class="num">2</span>
-        <div><h2>INFERENCE — sklearn vs our TinyRISC CPU</h2><p>Instruction Memory holds the program. Decision Tree / Random Forest branches now execute inside the CPU using BEQ, BNE and JUMP.</p></div>
+        <div><h2>BATCH INFERENCE — computer vs our TinyRISC CPU</h2><p>We take up to N examples from each class and send the same batch to sklearn and to our CPU.</p></div>
         <span id="inferState" class="state">waiting</span>
       </div>
-      <div class="cpu-flow-note"><b>IMEM</b> → Fetch → Decode → ALU/Compare → <b>BEQ / BNE / JUMP</b> → next PC → Prediction</div>
-      <div class="compare-head">
-        <span>MODEL</span><span>COMPUTER / sklearn</span><span></span><span>OUR TINY CPU</span><span>EXECUTION</span>
+      <div id="batchSummary" class="batch-summary">
+        <div><span>Samples</span><strong>—</strong></div>
+        <div><span>Class 0</span><strong>—</strong></div>
+        <div><span>Class 1</span><strong>—</strong></div>
+      </div>
+      <div class="compare-head batch-head">
+        <span>MODEL</span><span>PREDICTION QUALITY</span><span>COMPUTER</span><span>TINY CPU</span>
       </div>
       <div id="comparison" class="comparison">
-        <div class="compare-row" data-model="logistic_regression"><b>Logistic Regression</b><strong>—</strong><i>⇄</i><strong>—</strong><em>—</em></div>
-        <div class="compare-row" data-model="decision_tree"><b>Decision Tree</b><strong>—</strong><i>⇄</i><strong>—</strong><em>—</em></div>
-        <div class="compare-row" data-model="random_forest"><b>Random Forest</b><strong>—</strong><i>⇄</i><strong>—</strong><em>—</em></div>
-        <div class="compare-row" data-model="mlp_classifier"><b>MLP Classifier</b><strong>—</strong><i>⇄</i><strong>—</strong><em>—</em></div>
+        <div class="compare-row batch-row" data-model="logistic_regression"><b>Logistic Regression</b><div>—</div><div>—</div><div>—</div></div>
+        <div class="compare-row batch-row" data-model="decision_tree"><b>Decision Tree</b><div>—</div><div>—</div><div>—</div></div>
+        <div class="compare-row batch-row" data-model="random_forest"><b>Random Forest</b><div>—</div><div>—</div><div>—</div></div>
+        <div class="compare-row batch-row" data-model="mlp_classifier"><b>MLP Classifier</b><div>—</div><div>—</div><div>—</div></div>
       </div>
-      <div class="legend"><span class="host-dot"></span>Computer = sklearn prediction &nbsp;&nbsp; <span class="chip-dot"></span>Tiny CPU = instruction-memory program executed by SystemVerilog CPU</div>
+      <div class="cpu-flow-note"><b>Computer:</b> real sklearn wall-clock time &nbsp; | &nbsp; <b>TinyRISC:</b> simulated CPU cycles. Do not compare ms directly to cycles.</div>
     </section>
   </main>
 
-  <footer><span id="status">Ready. Press RUN ALL.</span><button id="testsBtn">Run CPU block tests</button></footer>
+  <footer><span id="status">Step 1: train the models.</span><button id="testsBtn">Run CPU block tests</button></footer>
 </div>
 <script src="/static/app.js"></script>
 </body>

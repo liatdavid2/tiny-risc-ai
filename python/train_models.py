@@ -1,5 +1,7 @@
 from pathlib import Path
 import json
+import pickle
+import time
 import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
@@ -59,7 +61,9 @@ def write_json(name, payload):
     (OUT / f"{name}.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 # Logistic Regression
+t0 = time.perf_counter()
 log = LogisticRegression(max_iter=2000, random_state=7).fit(X, y)
+log_train_ms = (time.perf_counter() - t0) * 1000.0
 log_acc = accuracy_score(y, log.predict(X))
 w = log.coef_[0]
 w_scale = max(float(np.max(np.abs(w))) / 100.0, 1e-9)
@@ -89,7 +93,9 @@ write_json("logistic_regression", {
 })
 
 # Decision Tree
+t0 = time.perf_counter()
 tree = DecisionTreeClassifier(max_depth=4, min_samples_leaf=8, random_state=7).fit(X, y)
+tree_train_ms = (time.perf_counter() - t0) * 1000.0
 tree_acc = accuracy_score(y, tree.predict(X))
 tree_pred = int(tree.predict(sample.reshape(1, -1))[0])
 t = tree.tree_
@@ -131,9 +137,11 @@ write_json("decision_tree", {
 })
 
 # Random Forest
+t0 = time.perf_counter()
 forest = RandomForestClassifier(
     n_estimators=5, max_depth=4, min_samples_leaf=8, random_state=7
 ).fit(X, y)
+forest_train_ms = (time.perf_counter() - t0) * 1000.0
 forest_acc = accuracy_score(y, forest.predict(X))
 forest_pred = int(forest.predict(sample.reshape(1, -1))[0])
 
@@ -187,10 +195,12 @@ write_json("random_forest", {
 })
 
 # MLP 4 -> 6 ReLU -> 1
+t0 = time.perf_counter()
 mlp = MLPClassifier(
     hidden_layer_sizes=(6,), activation="relu", solver="adam",
     max_iter=2500, random_state=7
 ).fit(X, y)
+mlp_train_ms = (time.perf_counter() - t0) * 1000.0
 mlp_acc = accuracy_score(y, mlp.predict(X))
 mlp_pred = int(mlp.predict(sample.reshape(1, -1))[0])
 W1 = mlp.coefs_[0]
@@ -247,12 +257,22 @@ write_json("mlp_classifier", {
 summary = {
     "dataset": "Synthetic binary classification (800 rows, 4 features)",
     "models": {
-        "logistic_regression": {"accuracy": float(log_acc), "sklearn_prediction": log_pred},
-        "decision_tree": {"accuracy": float(tree_acc), "sklearn_prediction": tree_pred},
-        "random_forest": {"accuracy": float(forest_acc), "sklearn_prediction": forest_pred},
-        "mlp_classifier": {"accuracy": float(mlp_acc), "sklearn_prediction": mlp_pred, "quantized_prediction": qpred},
+        "logistic_regression": {"accuracy": float(log_acc), "train_ms": log_train_ms, "sklearn_prediction": log_pred},
+        "decision_tree": {"accuracy": float(tree_acc), "train_ms": tree_train_ms, "sklearn_prediction": tree_pred},
+        "random_forest": {"accuracy": float(forest_acc), "train_ms": forest_train_ms, "sklearn_prediction": forest_pred},
+        "mlp_classifier": {"accuracy": float(mlp_acc), "train_ms": mlp_train_ms, "sklearn_prediction": mlp_pred, "quantized_prediction": qpred},
     },
 }
 (OUT / "models_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+with (OUT / "training_artifacts.pkl").open("wb") as f:
+    pickle.dump({
+        "X": X, "y": y, "QX": QX, "x_scale": x_scale,
+        "models": {
+            "logistic_regression": log,
+            "decision_tree": tree,
+            "random_forest": forest,
+            "mlp_classifier": mlp,
+        },
+    }, f)
 print(json.dumps(summary, indent=2))
 print("Generated SystemVerilog inference engines in generated/")

@@ -28,6 +28,7 @@ def state():
     return jsonify({
         "models": load("models_summary.json"),
         "cpu": load("cpu_inference_summary.json"),
+        "batch": load("batch_benchmark.json"),
     })
 
 
@@ -47,6 +48,21 @@ def cpu_infer_all():
     r = run_process([sys.executable, str(ROOT / "python" / "run_tinyrisc_cpu_inference.py")])
     r["data"] = load("cpu_inference_summary.json")
     r["models"] = load("models_summary.json")
+    return jsonify(r)
+
+
+@app.post("/api/batch-infer")
+def batch_infer():
+    body = request.get_json(silent=True) or {}
+    try:
+        max_per_class = int(body.get("max_per_class", 25))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "output": "max_per_class must be an integer"}), 400
+    max_per_class = max(1, min(max_per_class, 100))
+    if not (RESULTS / "training_artifacts.pkl").exists():
+        return jsonify({"ok": False, "output": "Train all models first."}), 400
+    r = run_process([sys.executable, str(ROOT / "python" / "run_batch_benchmark.py"), "--max-per-class", str(max_per_class)])
+    r["data"] = load("batch_benchmark.json")
     return jsonify(r)
 
 

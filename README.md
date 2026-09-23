@@ -113,3 +113,37 @@ docker compose down
 ## Important interpretation
 
 TinyRISC is a teaching CPU in simulation, not a physical chip. `cycles` are simulated CPU instruction cycles. They should not be compared directly with host-computer wall-clock milliseconds.
+
+## Two-step UI workflow: training, then batch inference
+
+The custom one-page UI now separates the experiment into two explicit phases:
+
+1. **TRAIN ALL MODELS** — trains Logistic Regression, Decision Tree, Random Forest and MLPClassifier with scikit-learn on the normal host CPU. The UI shows training accuracy and measured training wall-clock time.
+2. **RUN BATCH INFERENCE** — the user chooses **Max / class** (1–100). The app selects up to that many examples from each class and runs the *same samples* through:
+   - the original scikit-learn model on the host computer;
+   - the TinyRISC SystemVerilog CPU, using the exported/quantized model and its Instruction Memory program.
+
+The batch result reports, per model:
+
+- prediction agreement between sklearn and TinyRISC;
+- sklearn accuracy and TinyRISC accuracy against the labels;
+- mismatch count;
+- real sklearn inference wall-clock time;
+- TinyRISC total / average / min / max simulated CPU cycles;
+- simulator wall-clock time is collected internally but is **not** presented as hardware latency.
+
+For a binary dataset, `Max / class = 25` means at most 25 class-0 examples + 25 class-1 examples = up to 50 inference samples.
+
+### Run with Docker Compose
+
+```cmd
+docker compose up --build
+```
+
+Open:
+
+```text
+http://localhost:8080
+```
+
+Then click **1. TRAIN ALL MODELS**, set **Max / class**, and click **2. RUN BATCH INFERENCE**.
