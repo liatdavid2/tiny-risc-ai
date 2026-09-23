@@ -41,64 +41,88 @@
     <div class="cpu-brick">TINY CPU<small>SystemVerilog</small></div>
   </section>
 
-  <section class="arch-lab">
-    <div class="arch-title"><b>ARCHITECTURE LEGO</b><span>Choose complete CPU architectures to compare. Base TinyRISC stays as the reference; optional MAC architectures can be added or removed.</span></div>
-    <div class="arch-builder">
-      <div class="mini-brick fixed">BASE CORE<small>PC · IMEM · RF · ALU · BRANCH</small></div>
-      <span class="plus">+</span>
-      <label class="arch-picker">ADD ARCHITECTURE
-        <select id="architecturePreset">
-          <option value="">Choose architecture…</option>
-          <option value="2">TinyRISC + 2× MAC</option>
-          <option value="4">TinyRISC + 4× MAC</option>
-          <option value="8">TinyRISC + 8× MAC</option>
-        </select>
-      </label>
-      <button id="addArchBtn" class="small-action">+ ADD</button>
-      <div id="archChips" class="arch-chips"></div>
-      <button id="archCompareBtn" class="primary lego-run">3. COMPARE ARCHITECTURES</button>
-    </div>
-    <div class="arch-rule"><b>Logical rule:</b> one architecture has one MAC width. Add 2×, 4× or 8× MAC as separate designs; remove any optional design with ×. The Base CPU is always kept for a fair reference.</div>
-    <div id="archResults" class="arch-results muted"><span>Run batch inference first, then compare the same workload across your selected architectures.</span></div>
-  </section>
-
-  <main class="workspace">
-    <section class="phase training">
-      <div class="phase-title">
+  <main class="workspace accordion-stack">
+    <section id="trainingPanel" class="phase accordion-panel active">
+      <button class="accordion-head" type="button" data-panel="trainingPanel">
         <span class="num">1</span>
-        <div><h2>TRAINING — normal computer</h2><p id="datasetInfo">Breast Cancer Wisconsin · real binary dataset · 4 selected real features for TinyRISC v1.</p></div>
+        <div class="accordion-copy">
+          <h2>TRAINING — normal computer</h2>
+          <p id="trainingSummary">Train all 4 sklearn models and export their learned parameters.</p>
+        </div>
         <span id="trainState" class="state">waiting</span>
-      </div>
-      <div class="flow compact">
-        <div class="node">Real dataset<br><small id="datasetShape">Breast Cancer</small></div><span>→</span>
-        <div class="node host">scikit-learn<br><small>HOST CPU</small></div><span>→</span>
-        <div class="node">Export<br><small>weights / trees</small></div>
-      </div>
-      <div id="trainingResults" class="model-grid muted">
-        <div class="model-card"><b>Logistic Regression</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
-        <div class="model-card"><b>Decision Tree</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
-        <div class="model-card"><b>Random Forest</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
-        <div class="model-card"><b>MLP Classifier</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
+        <span class="chevron">⌄</span>
+      </button>
+      <div class="accordion-body">
+        <p id="datasetInfo" class="section-note">Breast Cancer Wisconsin · real binary dataset · 4 selected real features for TinyRISC v1.</p>
+        <div class="flow compact">
+          <div class="node">Real dataset<br><small id="datasetShape">Breast Cancer</small></div><span>→</span>
+          <div class="node host">scikit-learn<br><small>HOST CPU</small></div><span>→</span>
+          <div class="node">Export<br><small>weights / trees</small></div>
+        </div>
+        <div id="trainingResults" class="model-grid muted">
+          <div class="model-card"><b>Logistic Regression</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
+          <div class="model-card"><b>Decision Tree</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
+          <div class="model-card"><b>Random Forest</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
+          <div class="model-card"><b>MLP Classifier</b><span>Test accuracy</span><strong>—</strong><small>Train time —</small></div>
+        </div>
       </div>
     </section>
 
-    <section class="phase inference">
-      <div class="phase-title">
+    <section id="inferencePanel" class="phase accordion-panel">
+      <button class="accordion-head" type="button" data-panel="inferencePanel">
         <span class="num">2</span>
-        <div><h2>BATCH INFERENCE — computer vs our TinyRISC CPU</h2><p>Same held-out test samples, same trained model, two inference engines.</p></div>
+        <div class="accordion-copy">
+          <h2>BATCH INFERENCE — computer vs our TinyRISC CPU</h2>
+          <p id="inferenceSummary">Same held-out samples, same trained model, two inference engines.</p>
+        </div>
         <span id="inferState" class="state">waiting</span>
+        <span class="chevron">⌄</span>
+      </button>
+      <div class="accordion-body">
+        <div id="batchSummary" class="batch-summary"></div>
+        <div class="compare-head batch-head">
+          <span>MODEL</span><span>PREDICTION QUALITY</span><span>COMPUTER</span><span>TINY CPU</span>
+        </div>
+        <div id="comparison" class="comparison">
+          <div class="compare-row batch-row" data-model="logistic_regression"><b>Logistic Regression</b><div>—</div><div>—</div><div>—</div></div>
+          <div class="compare-row batch-row" data-model="decision_tree"><b>Decision Tree</b><div>—</div><div>—</div><div>—</div></div>
+          <div class="compare-row batch-row" data-model="random_forest"><b>Random Forest</b><div>—</div><div>—</div><div>—</div></div>
+          <div class="compare-row batch-row" data-model="mlp_classifier"><b>MLP Classifier</b><div>—</div><div>—</div><div>—</div></div>
+        </div>
+        <div class="cpu-flow-note"><b>Computer:</b> real sklearn wall-clock time &nbsp; | &nbsp; <b>TinyRISC:</b> simulated CPU cycles. ms and cycles are intentionally shown separately.</div>
       </div>
-      <div id="batchSummary" class="batch-summary"></div>
-      <div class="compare-head batch-head">
-        <span>MODEL</span><span>PREDICTION QUALITY</span><span>COMPUTER</span><span>TINY CPU</span>
+    </section>
+
+    <section id="architecturePanel" class="arch-lab accordion-panel">
+      <button class="accordion-head" type="button" data-panel="architecturePanel">
+        <span class="num">3</span>
+        <div class="accordion-copy">
+          <h2>ARCHITECTURE LEGO</h2>
+          <p id="architectureSummary">Build alternative TinyRISC architectures and compare projected cycles.</p>
+        </div>
+        <span id="archState" class="state">ready</span>
+        <span class="chevron">⌄</span>
+      </button>
+      <div class="accordion-body">
+        <div class="arch-title"><b>Choose complete CPU architectures to compare</b><span>Base TinyRISC stays as the reference; optional MAC architectures can be added or removed.</span></div>
+        <div class="arch-builder">
+          <div class="mini-brick fixed">BASE CORE<small>PC · IMEM · RF · ALU · BRANCH</small></div>
+          <span class="plus">+</span>
+          <label class="arch-picker">ADD ARCHITECTURE
+            <select id="architecturePreset">
+              <option value="">Choose architecture…</option>
+              <option value="2">TinyRISC + 2× MAC</option>
+              <option value="4">TinyRISC + 4× MAC</option>
+              <option value="8">TinyRISC + 8× MAC</option>
+            </select>
+          </label>
+          <button id="addArchBtn" class="small-action">+ ADD</button>
+          <div id="archChips" class="arch-chips"></div>
+          <button id="archCompareBtn" class="primary lego-run">COMPARE ARCHITECTURES</button>
+        </div>
+        <div class="arch-rule"><b>Logical rule:</b> one architecture has one MAC width. Add 2×, 4× or 8× MAC as separate designs; remove any optional design with ×. The Base CPU is always kept for a fair reference.</div>
+        <div id="archResults" class="arch-results muted"><span>Run batch inference first, then compare the same workload across your selected architectures.</span></div>
       </div>
-      <div id="comparison" class="comparison">
-        <div class="compare-row batch-row" data-model="logistic_regression"><b>Logistic Regression</b><div>—</div><div>—</div><div>—</div></div>
-        <div class="compare-row batch-row" data-model="decision_tree"><b>Decision Tree</b><div>—</div><div>—</div><div>—</div></div>
-        <div class="compare-row batch-row" data-model="random_forest"><b>Random Forest</b><div>—</div><div>—</div><div>—</div></div>
-        <div class="compare-row batch-row" data-model="mlp_classifier"><b>MLP Classifier</b><div>—</div><div>—</div><div>—</div></div>
-      </div>
-      <div class="cpu-flow-note"><b>Computer:</b> real sklearn wall-clock time &nbsp; | &nbsp; <b>TinyRISC:</b> simulated CPU cycles. ms and cycles are intentionally shown separately.</div>
     </section>
   </main>
 

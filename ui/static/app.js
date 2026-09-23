@@ -128,3 +128,50 @@ $('archCompareBtn').onclick=async()=>{
     setStatus('Architecture comparison complete. Green cells use the fewest projected cycles for that model.');
   }catch(e){setStatus('ERROR: '+e.message);} finally{$('archCompareBtn').disabled=false;}
 };
+
+// ---- One-screen accordion navigation ----
+function openPanel(panelId){
+  document.querySelectorAll('.accordion-panel').forEach(p=>p.classList.toggle('active', p.id===panelId));
+}
+document.querySelectorAll('.accordion-head').forEach(h=>h.addEventListener('click',()=>openPanel(h.dataset.panel)));
+
+// Wrap existing render functions so collapsed headers keep a useful summary.
+const _renderTraining = renderTraining;
+renderTraining = function(data){
+  _renderTraining(data);
+  const best = Math.max(...order.map(k=>data.models[k].accuracy));
+  $('trainingSummary').textContent = `${data.dataset_label} · 4 models trained · best test accuracy ${(best*100).toFixed(1)}%`;
+};
+const _renderBatch = renderBatch;
+renderBatch = function(data){
+  _renderBatch(data);
+  const agreements = data.models.map(m=>m.agreement*100);
+  $('inferenceSummary').textContent = `${data.samples} samples · agreement ${Math.min(...agreements).toFixed(1)}–${Math.max(...agreements).toFixed(1)}% · sklearn vs TinyRISC`;
+};
+const _renderArchitectureCompare = renderArchitectureCompare;
+renderArchitectureCompare = function(data){
+  _renderArchitectureCompare(data);
+  $('architectureSummary').textContent = `${data.architectures.length} architectures compared · Base TinyRISC kept as reference`;
+  state('archState','done ✓','done');
+};
+
+// Move focus automatically through the three-stage story.
+const _trainClick = $('trainBtn').onclick;
+$('trainBtn').onclick = async function(){
+  openPanel('trainingPanel');
+  await _trainClick.call(this);
+  if($('trainState').classList.contains('done')) openPanel('inferencePanel');
+};
+const _batchClick = $('batchBtn').onclick;
+$('batchBtn').onclick = async function(){
+  openPanel('inferencePanel');
+  await _batchClick.call(this);
+  if($('inferState').classList.contains('done')) openPanel('architecturePanel');
+};
+const _archClick = $('archCompareBtn').onclick;
+$('archCompareBtn').onclick = async function(){
+  openPanel('architecturePanel');
+  state('archState','running…','running');
+  await _archClick.call(this);
+  if(!$('status').textContent.startsWith('ERROR')) state('archState','done ✓','done');
+};

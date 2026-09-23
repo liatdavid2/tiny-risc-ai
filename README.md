@@ -156,3 +156,13 @@ These values are **simulated/projected architecture cycles, not physical wall-cl
 ## Architecture LEGO selector
 
 The UI keeps **Base TinyRISC** as a fixed reference architecture. Use the **ADD ARCHITECTURE** dropdown to add `TinyRISC + 2× MAC`, `+4× MAC`, or `+8× MAC` as separate complete designs. Optional designs can be removed with the `×` button. A single design never stacks multiple MAC widths; each preset represents one logical alternative architecture.
+
+## One-screen UI navigation
+
+The web UI uses three accordion stages so content is never hidden below the fold on a normal desktop viewport:
+
+1. **Training** — sklearn training results.
+2. **Batch inference** — sklearn vs TinyRISC agreement, accuracy, host time and simulated CPU cycles.
+3. **Architecture LEGO** — compare Base TinyRISC against optional 2×/4×/8× MAC designs.
+
+Only one stage is expanded at a time. Completed stages collapse to a compact summary and can be reopened by clicking their header.
