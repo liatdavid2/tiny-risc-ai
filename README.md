@@ -1,85 +1,88 @@
 # TinyRISC-AI
 
-A beginner-friendly, CPU-only project that starts with digital-logic building blocks, combines them into a small RISC-style CPU, and adds a custom **int8 dot-product AI accelerator**.
+A learning project that builds a small RISC-style CPU from digital-logic blocks in SystemVerilog, trains ML models with scikit-learn on the normal computer, then executes **inference as an instruction program inside the simulated CPU**.
 
-The complete project now runs inside **Docker** with **Docker Compose**. You do not need to install Python, Flask, scikit-learn, or Icarus Verilog on Windows. Docker Desktop is enough.
+## What is new in this version
 
-## What the project demonstrates
+TinyRISC now has a real **Instruction Memory** and CPU control-flow instructions:
 
-The project is intentionally educational and visual:
+- `BEQ` — branch if equal
+- `BNE` — branch if not equal
+- `JAL x0,label` — used as an unconditional `JUMP`
+- `HALT` — teaching instruction used to stop the simulator
 
-```text
-Digital logic
-   ↓
-AND / MUX / Register / Counter
-   ↓
-ALU + Register File + Decoder
-   ↓
-Mini CPU
-   ↓
-Custom AI dot-product accelerator
-   ↓
-Tiny ML model + CPU-vs-accelerator benchmark
-   ↓
-Custom HTML/CSS/JavaScript UI
-```
+The Program Counter is therefore no longer limited to `PC + 4`. A branch or jump changes the next PC inside the CPU.
 
-The UI explains what each block does and lets you run the hardware tests, train the tiny ML model, and run the benchmark from the browser.
-
-## Stages
-
-1. AND gate
-2. 2-to-1 MUX
-3. Clocked register
-4. Counter / Program Counter concept
-5. ALU
-6. Register file
-7. Instruction decoder
-8. Mini CPU
-9. int8 dot-product AI accelerator
-10. Tiny logistic-regression model
-11. CPU-vs-accelerator benchmark + custom web UI
-
-> The CPU is a small RISC-style educational CPU. It is not a complete RISC-V implementation.
-
-## Repository layout
+For `DecisionTreeClassifier` and `RandomForestClassifier`, the Python side converts the trained sklearn tree into a TinyRISC instruction program. Threshold decisions and the movement to the left/right child are now performed by **SLTI + BNE/JUMP instructions executing inside TinyRISC**. The test harness no longer chooses tree branches.
 
 ```text
-stages/       Step-by-step SystemVerilog exercises
-rtl/          Reusable hardware modules
-tb/           Extra SystemVerilog testbenches
-python/       ML training and benchmark scripts
-ui/           Custom Flask + HTML/CSS/JS educational dashboard
-scripts/      Windows and Linux/Docker launchers
-results/      Generated model/benchmark output
-Dockerfile    Container image
-docker-compose.yml
+sklearn tree
+     ↓ export nodes
+TinyRISC program
+     ↓
+Instruction Memory
+     ↓
+ PC → Fetch → Decoder → Compare
+ ↑                         ↓
+ └──── BEQ / BNE / JUMP ───┘
+     ↓
+Prediction
 ```
 
-# Run with Docker Compose on Windows CMD
+## Training vs inference
 
-## 1. Prerequisite
-
-Install and start Docker Desktop. Then open CMD and check:
-
-```cmd
-docker --version
-docker compose version
+```text
+Dataset
+   ↓
+scikit-learn on host CPU
+   ↓
+TRAIN
+   ↓
+export weights / thresholds / tree nodes
+   ↓
+compile to TinyRISC instructions
+   ↓
+Instruction Memory
+   ↓
+TinyRISC SystemVerilog CPU
+   ↓
+INFERENCE
 ```
 
-## 2. Go to the repository
+The UI compares the prediction produced by sklearn on the computer with the prediction produced by the TinyRISC CPU.
 
-```cmd
-cd C:\Users\YOUR_USER\Documents\GitHub\tiny-risc-ai
+## CPU learning path
+
+```text
+AND → MUX → Register → Counter/PC → Instruction Memory → ALU
+    → Register File → Decoder → BEQ/BNE/JUMP → Mini CPU
 ```
 
-## 3. Build and start everything
+The CPU supports the small instruction subset needed by the demos: integer add, multiply, compare, arithmetic shift, branches and jumps.
+
+## ML models
+
+- **Logistic Regression** — weights + bias compiled to multiply/add/compare instructions
+- **Decision Tree** — thresholds + nodes compiled to compare + branch/jump instructions
+- **Random Forest** — each tree runs as CPU control flow; votes are accumulated and majority is computed in TinyRISC
+- **MLP Classifier** — layer weights/biases compiled to multiply/add/ReLU control flow
+
+Generated instruction-memory images are written to:
+
+```text
+generated/logistic_regression.mem
+generated/decision_tree.mem
+generated/random_forest.mem
+generated/mlp_classifier.mem
+```
+
+## Run with Docker Compose
+
+Open Docker Desktop and from Windows CMD run:
 
 ```cmd
 docker compose up --build
 ```
-
-The first build installs Python packages and Icarus Verilog inside the container.
 
 Open:
 
@@ -87,116 +90,26 @@ Open:
 http://localhost:8080
 ```
 
-That is the custom educational UI.
+Press **RUN ALL**. The UI first shows sklearn training accuracy, then loads each model program into TinyRISC Instruction Memory and compares sklearn prediction with the SystemVerilog CPU prediction.
 
-## 4. Run in the background
-
-```cmd
-docker compose up -d --build
-```
-
-Check status:
-
-```cmd
-docker compose ps
-```
-
-View logs:
-
-```cmd
-docker compose logs -f
-```
-
-Stop the project:
-
-```cmd
-docker compose down
-```
-
-## Run tests from CMD through Docker
-
-All SystemVerilog tests:
-
-```cmd
-docker compose run --rm tiny-risc-ai sh scripts/run_sv_tests.sh
-```
-
-Expected final line:
-
-```text
-ALL SYSTEMVERILOG TESTS PASSED.
-```
-
-Train the tiny ML model and run the benchmark:
-
-```cmd
-docker compose run --rm tiny-risc-ai sh scripts/run_ai_demo.sh
-```
-
-Run everything:
+Run everything without the UI:
 
 ```cmd
 docker compose run --rm tiny-risc-ai sh scripts/run_all.sh
 ```
 
-The generated JSON files are written to the local `results` directory because Docker Compose mounts it into the container.
-
-## What runs where?
-
-```text
-Windows PC
-   ↓
-Docker Desktop
-   ↓
-Docker Compose
-   ↓
-TinyRISC-AI container
-   ├── Icarus Verilog → SystemVerilog simulation + verification
-   ├── Python         → ML training + benchmark
-   ├── Flask          → backend API
-   └── HTML/CSS/JS    → custom explanatory UI
-             ↓
-        localhost:8080
-```
-
-No GPU is required. The Docker container runs entirely on the host CPU.
-
-## AI part
-
-`python/train_model.py` creates a small 4-feature binary-classification dataset, trains logistic regression, and quantizes the model weights/sample to int8.
-
-The accelerator computes a hardware-friendly dot product:
-
-```text
-score = x0*w0 + x1*w1 + x2*w2 + x3*w3 + bias
-prediction = score >= 0
-```
-
-The SystemVerilog accelerator computes the four int8 multiply-accumulate terms. The Python benchmark compares this against a simple educational CPU execution model.
-
-**Important:** cycle counts are architectural estimates for learning. They are not measurements of physical silicon latency or power.
-
-## sklearn models -> SystemVerilog inference
-
-Training runs on the normal host CPU with scikit-learn. The learned model is exported, and inference is executed by a generated SystemVerilog hardware engine in Icarus Verilog.
-
-| Model | Exported from sklearn | Simulated hardware inference |
-|---|---|---|
-| LogisticRegression | weights + bias | dot product + compare |
-| DecisionTreeClassifier | thresholds + nodes | compare + branch |
-| RandomForestClassifier | multiple trees | tree inference + voting |
-| MLPClassifier | weights for each layer | matrix multiply + ReLU |
-
-Run all four model demos in Docker:
+Run only CPU block tests:
 
 ```cmd
-docker compose run --rm tiny-risc-ai sh scripts/run_models.sh
+docker compose run --rm tiny-risc-ai sh scripts/run_sv_tests.sh
 ```
 
-Start the one-screen LEGO-style UI:
+Stop:
 
 ```cmd
-docker compose up --build
+docker compose down
 ```
 
-Then open `http://localhost:8080`.
+## Important interpretation
+
+TinyRISC is a teaching CPU in simulation, not a physical chip. `cycles` are simulated CPU instruction cycles. They should not be compared directly with host-computer wall-clock milliseconds.

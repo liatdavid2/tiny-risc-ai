@@ -47,6 +47,7 @@ run_test "08 Mini CPU" \
   "$ROOT/rtl/register_file.sv" \
   "$ROOT/rtl/decoder.sv" \
   "$ROOT/rtl/ai_accelerator.sv" \
+  "$ROOT/rtl/instruction_memory.sv" \
   "$ROOT/rtl/cpu.sv" \
   "$ROOT/stages/08_mini_cpu/testbench.sv"
 

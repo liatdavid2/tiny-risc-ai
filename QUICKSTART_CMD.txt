@@ -1,28 +1,27 @@
-TinyRISC-AI - Windows CMD quick start
+TinyRISC-AI — Windows CMD quick start
 
-1) Start Docker Desktop.
+1. Start Docker Desktop.
+2. Open CMD in the repo folder.
+3. Build and start:
 
-2) Open CMD in the repository folder:
-   cd C:\Users\YOUR_USER\Documents\GitHub\tiny-risc-ai
-
-3) Build and start the custom one-screen UI:
    docker compose up --build
 
-4) Open:
+4. Open:
+
    http://localhost:8080
 
-The UI lets you:
-- test the CPU building blocks
-- train 4 sklearn models on the host CPU inside Docker
-- choose Logistic Regression / Decision Tree / Random Forest / MLP
-- export the learned parameters
-- run inference in generated SystemVerilog with Icarus Verilog
+5. Press RUN ALL.
 
-Run all hardware tests + all four model inference demos from CMD:
+The flow is:
+scikit-learn training -> export model -> compile TinyRISC instructions -> load Instruction Memory -> execute inference on TinyRISC CPU.
+
+Decision Tree and Random Forest control flow is executed inside TinyRISC with BEQ/BNE/JUMP.
+
+CLI full run:
    docker compose run --rm tiny-risc-ai sh scripts/run_all.sh
 
-Run only the ML hardware inference demos:
-   docker compose run --rm tiny-risc-ai sh scripts/run_models.sh
+CPU tests:
+   docker compose run --rm tiny-risc-ai sh scripts/run_sv_tests.sh
 
 Stop:
    docker compose down

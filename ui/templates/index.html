@@ -3,64 +3,75 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TinyRISC-AI</title>
+  <title>TinyRISC-AI Lab</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<div class="app">
-  <header>
-    <div><b>TinyRISC-AI</b><span>Build a CPU → plug in sklearn inference hardware</span></div>
-    <div class="actions"><button id="testBtn">Test CPU blocks</button><button id="trainBtn">Train sklearn models</button></div>
+<div class="shell">
+  <header class="topbar">
+    <div>
+      <h1>TinyRISC-AI Lab</h1>
+      <p>Train with scikit-learn → compile the learned model into instructions → execute inference inside our simulated CPU</p>
+    </div>
+    <button id="runAllBtn" class="run-all">▶ RUN ALL</button>
   </header>
 
-  <main>
-    <section class="lego">
-      <h2>1. Build the Mini CPU from LEGO-like blocks</h2>
-      <div class="blocks">
-        <div class="brick">AND<small>logic</small></div><div class="arrow">→</div>
-        <div class="brick">MUX<small>choose</small></div><div class="arrow">→</div>
-        <div class="brick">Register<small>store</small></div><div class="arrow">→</div>
-        <div class="brick">Counter<small>PC</small></div><div class="arrow">→</div>
-        <div class="brick">ALU<small>compute</small></div><div class="arrow">→</div>
-        <div class="brick">Registers<small>data</small></div><div class="arrow">→</div>
-        <div class="brick">Decoder<small>control</small></div>
+  <section class="cpu-strip">
+    <div class="label">CPU LEGO</div>
+    <div class="brick">AND<small>logic</small></div><b>+</b>
+    <div class="brick">MUX<small>choose</small></div><b>+</b>
+    <div class="brick">REG<small>store</small></div><b>+</b>
+    <div class="brick">PC<small>next instruction</small></div><b>+</b>
+    <div class="brick new-brick">IMEM<small>program</small></div><b>+</b>
+    <div class="brick">ALU<small>compute</small></div><b>+</b>
+    <div class="brick">REG FILE<small>data</small></div><b>+</b>
+    <div class="brick">DECODER<small>instruction</small></div><b>+</b>
+    <div class="brick new-brick">BRANCH<small>BEQ/BNE/JUMP</small></div>
+    <div class="equals">=</div>
+    <div class="cpu-brick">TINY CPU<small>SystemVerilog</small></div>
+  </section>
+
+  <main class="workspace">
+    <section class="phase training">
+      <div class="phase-title">
+        <span class="num">1</span>
+        <div><h2>TRAINING — normal computer</h2><p>scikit-learn trains each model on the host CPU. We export weights, thresholds and tree nodes.</p></div>
+        <span id="trainState" class="state">waiting</span>
       </div>
-      <div class="cpu">
-        <div class="cpu-title">MINI CPU</div>
-        <div class="pipe"><span>PC</span><i>→</i><span>Decoder</span><i>→</i><span>Register File</span><i>→</i><span>MUX</span><i>→</i><span>ALU</span><i>→</i><span>Write Back</span></div>
+      <div class="flow compact">
+        <div class="node">Dataset<br><small>800 × 4</small></div><span>→</span>
+        <div class="node host">scikit-learn<br><small>HOST CPU</small></div><span>→</span>
+        <div class="node">Export<br><small>model parameters</small></div>
+      </div>
+      <div id="trainingResults" class="model-grid muted">
+        <div class="model-card"><b>Logistic Regression</b><span>Accuracy</span><strong>—</strong></div>
+        <div class="model-card"><b>Decision Tree</b><span>Accuracy</span><strong>—</strong></div>
+        <div class="model-card"><b>Random Forest</b><span>Accuracy</span><strong>—</strong></div>
+        <div class="model-card"><b>MLP Classifier</b><span>Accuracy</span><strong>—</strong></div>
       </div>
     </section>
 
-    <section class="ml">
-      <div class="ml-head">
-        <div><h2>2. AI: train with sklearn, run inference in simulated hardware</h2><p>Training runs on the host CPU. We export learned parameters only. The prediction is executed by generated SystemVerilog in Icarus Verilog.</p></div>
-        <select id="model">
-          <option value="logistic_regression">Logistic Regression</option>
-          <option value="decision_tree">Decision Tree</option>
-          <option value="random_forest">Random Forest</option>
-          <option value="mlp_classifier">MLP Classifier</option>
-        </select>
+    <section class="phase inference">
+      <div class="phase-title">
+        <span class="num">2</span>
+        <div><h2>INFERENCE — sklearn vs our TinyRISC CPU</h2><p>Instruction Memory holds the program. Decision Tree / Random Forest branches now execute inside the CPU using BEQ, BNE and JUMP.</p></div>
+        <span id="inferState" class="state">waiting</span>
       </div>
-      <div class="ml-flow">
-        <div class="brick data">Dataset</div><div class="arrow">→</div>
-        <div class="brick sklearn">sklearn TRAIN</div><div class="arrow">→</div>
-        <div class="brick export" id="exportBrick">weights + bias</div><div class="arrow">→</div>
-        <div class="brick ai">SystemVerilog inference</div>
-        <button id="inferBtn">▶ Run inference</button>
+      <div class="cpu-flow-note"><b>IMEM</b> → Fetch → Decode → ALU/Compare → <b>BEQ / BNE / JUMP</b> → next PC → Prediction</div>
+      <div class="compare-head">
+        <span>MODEL</span><span>COMPUTER / sklearn</span><span></span><span>OUR TINY CPU</span><span>EXECUTION</span>
       </div>
-      <div class="model-map"><span id="mapText">Dot product + bias + sign compare</span></div>
-      <div class="metrics">
-        <div><small>Train accuracy</small><b id="acc">—</b></div>
-        <div><small>sklearn expected</small><b id="expected">—</b></div>
-        <div><small>SystemVerilog prediction</small><b id="pred">—</b></div>
-        <div><small>CPU-style cycles*</small><b id="cpuCycles">—</b></div>
-        <div class="accent"><small>Specialized engine*</small><b id="hwCycles">—</b></div>
-        <div><small>Estimated speedup*</small><b id="speedup">—</b></div>
+      <div id="comparison" class="comparison">
+        <div class="compare-row" data-model="logistic_regression"><b>Logistic Regression</b><strong>—</strong><i>⇄</i><strong>—</strong><em>—</em></div>
+        <div class="compare-row" data-model="decision_tree"><b>Decision Tree</b><strong>—</strong><i>⇄</i><strong>—</strong><em>—</em></div>
+        <div class="compare-row" data-model="random_forest"><b>Random Forest</b><strong>—</strong><i>⇄</i><strong>—</strong><em>—</em></div>
+        <div class="compare-row" data-model="mlp_classifier"><b>MLP Classifier</b><strong>—</strong><i>⇄</i><strong>—</strong><em>—</em></div>
       </div>
-      <div class="note" id="note">* Cycle counts are teaching estimates; the prediction itself is executed by the SystemVerilog simulator.</div>
+      <div class="legend"><span class="host-dot"></span>Computer = sklearn prediction &nbsp;&nbsp; <span class="chip-dot"></span>Tiny CPU = instruction-memory program executed by SystemVerilog CPU</div>
     </section>
   </main>
-  <div id="toast">Ready</div>
+
+  <footer><span id="status">Ready. Press RUN ALL.</span><button id="testsBtn">Run CPU block tests</button></footer>
 </div>
 <script src="/static/app.js"></script>
 </body>

@@ -15,7 +15,7 @@ def run_process(cmd):
 
 def load(name):
     p = RESULTS / name
-    return json.loads(p.read_text()) if p.exists() else None
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
 @app.get("/")
@@ -25,13 +25,28 @@ def index():
 
 @app.get("/api/state")
 def state():
-    return jsonify({"models": load("models_summary.json"), "inference": load("inference_summary.json")})
+    return jsonify({
+        "models": load("models_summary.json"),
+        "cpu": load("cpu_inference_summary.json"),
+    })
 
 
 @app.post("/api/train")
 def train():
     r = run_process([sys.executable, str(ROOT / "python" / "train_models.py")])
     r["data"] = load("models_summary.json")
+    return jsonify(r)
+
+
+@app.post("/api/cpu-infer-all")
+def cpu_infer_all():
+    if not (RESULTS / "models_summary.json").exists():
+        tr = run_process([sys.executable, str(ROOT / "python" / "train_models.py")])
+        if not tr["ok"]:
+            return jsonify(tr), 500
+    r = run_process([sys.executable, str(ROOT / "python" / "run_tinyrisc_cpu_inference.py")])
+    r["data"] = load("cpu_inference_summary.json")
+    r["models"] = load("models_summary.json")
     return jsonify(r)
 
 

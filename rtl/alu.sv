@@ -11,6 +11,8 @@ module alu(
     localparam ALU_OR  = 4'd3;
     localparam ALU_XOR = 4'd4;
     localparam ALU_MUL = 4'd5;
+    localparam ALU_SLT = 4'd6;
+    localparam ALU_SRA = 4'd7;
 
     always_comb begin
         case (op)
@@ -20,6 +22,8 @@ module alu(
             ALU_OR : result = a | b;
             ALU_XOR: result = a ^ b;
             ALU_MUL: result = a * b;
+            ALU_SLT: result = (a < b) ? 32'sd1 : 32'sd0;
+            ALU_SRA: result = a >>> b[4:0];
             default: result = 32'sd0;
         endcase
     end

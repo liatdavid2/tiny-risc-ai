@@ -162,10 +162,27 @@ endmodule
 """
 (GEN / "random_forest_inference.sv").write_text(sv)
 (GEN / "random_forest_tb.sv").write_text(make_tb("random_forest_inference", forest_pred, q_sample))
+forest_trees = []
+for ti, est in enumerate(forest.estimators_):
+    tt = est.tree_
+    tnodes = []
+    for i in range(tt.node_count):
+        leaf = tt.children_left[i] == tt.children_right[i]
+        tnodes.append({
+            "id": i, "leaf": bool(leaf),
+            "feature": None if leaf else int(tt.feature[i]),
+            "threshold_int8": None if leaf else int(round(float(tt.threshold[i]) / x_scale)),
+            "left": None if leaf else int(tt.children_left[i]),
+            "right": None if leaf else int(tt.children_right[i]),
+            "class": int(np.argmax(tt.value[i][0])) if leaf else None,
+        })
+    forest_trees.append({"tree": ti, "nodes": tnodes})
+
 write_json("random_forest", {
     "model": "RandomForestClassifier", "train_accuracy": float(forest_acc),
     "input_scale": x_scale, "sample_float": sample.tolist(), "sample_int8": q_sample.tolist(),
-    "sklearn_prediction": forest_pred, "exported": {"n_trees": 5, "max_depth": 4},
+    "sklearn_prediction": forest_pred,
+    "exported": {"n_trees": 5, "max_depth": 4, "trees": forest_trees},
     "hardware": "5 tree engines + majority voting", "inference_engine": "random_forest_inference.sv"
 })
 

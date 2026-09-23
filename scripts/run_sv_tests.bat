@@ -32,7 +32,7 @@ echo === 07 DECODER ===
 iverilog -g2012 -o build\t07 rtl\decoder.sv stages\07_decoder\testbench.sv && vvp build\t07 || exit /b 1
 
 echo === 08 MINI CPU ===
-iverilog -g2012 -o build\t08 rtl\alu.sv rtl\register_file.sv rtl\decoder.sv rtl\ai_accelerator.sv rtl\cpu.sv stages\08_mini_cpu\testbench.sv && vvp build\t08 || exit /b 1
+iverilog -g2012 -o build\t08 rtl\alu.sv rtl\register_file.sv rtl\decoder.sv rtl\ai_accelerator.sv rtl\instruction_memory.sv rtl\cpu.sv stages\08_mini_cpu\testbench.sv && vvp build\t08 || exit /b 1
 
 echo === AI ACCELERATOR ===
 iverilog -g2012 -o build\tai rtl\ai_accelerator.sv tb\ai_accelerator_tb.sv && vvp build\tai || exit /b 1
