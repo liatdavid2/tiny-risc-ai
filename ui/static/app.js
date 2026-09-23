@@ -58,3 +58,43 @@ $('batchBtn').onclick=async()=>{
   finally{ $('batchBtn').disabled=false; }
 };
 $('testsBtn').onclick=async()=>{ setStatus('Running SystemVerilog unit tests…'); try{const d=await post('/api/sv-tests'); setStatus(d.ok?'CPU block tests passed ✓':'CPU block tests failed');}catch(e){setStatus('ERROR: '+e.message);} };
+
+// ---- Architecture LEGO explorer ----
+let architectures = [
+  {name:'Base TinyRISC', mac_lanes:0},
+  {name:'TinyRISC + 2× MAC', mac_lanes:2},
+  {name:'TinyRISC + 4× MAC', mac_lanes:4}
+];
+function renderArchChips(){
+  const box=$('archChips');
+  box.innerHTML=architectures.map((a,i)=>`<div class="arch-chip"><b>${a.name}</b>${i===0?'':`<button data-i="${i}" title="remove">×</button>`}</div>`).join('');
+  box.querySelectorAll('button').forEach(b=>b.onclick=()=>{architectures.splice(Number(b.dataset.i),1);renderArchChips();});
+}
+renderArchChips();
+$('addArchBtn').onclick=()=>{
+  const lanes=Number($('macLanes').value);
+  const name=lanes===0?'Base TinyRISC':`TinyRISC + ${lanes}× MAC`;
+  if(!architectures.some(a=>a.mac_lanes===lanes)) architectures.push({name,mac_lanes:lanes});
+  architectures=architectures.slice(0,6); renderArchChips();
+};
+function renderArchitectureCompare(data){
+  const box=$('archResults'); box.classList.remove('muted');
+  const archs=data.architectures;
+  let html=`<div class="arch-cell head">MODEL</div>`+archs.map(a=>`<div class="arch-cell head">${a.name}</div>`).join('');
+  data.models.forEach(m=>{
+    const vals=m.architectures.map(x=>x.avg_cycles), best=Math.min(...vals);
+    html+=`<div class="arch-cell model">${names[m.model]}<small>${m.mac_ops_per_sample} MAC terms/sample</small></div>`;
+    m.architectures.forEach(v=>{ const cls=Math.abs(v.avg_cycles-best)<1e-9?'arch-cell best':'arch-cell'; html+=`<div class="${cls}"><b>${v.avg_cycles.toFixed(1)}</b> cycles<small>${v.speedup_vs_base.toFixed(2)}× vs base</small></div>`; });
+  });
+  box.innerHTML=html;
+}
+$('archCompareBtn').onclick=async()=>{
+  $('archCompareBtn').disabled=true;
+  try{
+    setStatus('Comparing LEGO architectures using the completed TinyRISC batch workload…');
+    const d=await post('/api/architecture-compare',{architectures});
+    if(!d.ok) throw new Error(d.output||'Architecture comparison failed');
+    renderArchitectureCompare(d.data);
+    setStatus('Architecture comparison complete. Green cells use the fewest projected cycles for that model.');
+  }catch(e){setStatus('ERROR: '+e.message);} finally{$('archCompareBtn').disabled=false;}
+};

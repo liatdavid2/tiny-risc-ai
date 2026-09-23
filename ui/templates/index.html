@@ -41,6 +41,26 @@
     <div class="cpu-brick">TINY CPU<small>SystemVerilog</small></div>
   </section>
 
+  <section class="arch-lab">
+    <div class="arch-title"><b>ARCHITECTURE LEGO</b><span>Keep the CPU core, then snap on a parallel MAC block and compare projected cycles.</span></div>
+    <div class="arch-builder">
+      <div class="mini-brick fixed">CORE CPU<small>PC · IMEM · RF · ALU · BRANCH</small></div>
+      <span class="plus">+</span>
+      <label class="mini-brick selectable">MAC BLOCK
+        <select id="macLanes">
+          <option value="0">none</option>
+          <option value="2">2× MAC</option>
+          <option value="4" selected>4× MAC</option>
+          <option value="8">8× MAC</option>
+        </select>
+      </label>
+      <button id="addArchBtn" class="small-action">+ ADD ARCHITECTURE</button>
+      <div id="archChips" class="arch-chips"></div>
+      <button id="archCompareBtn" class="primary lego-run">3. COMPARE ARCHITECTURES</button>
+    </div>
+    <div id="archResults" class="arch-results muted"><span>Run batch inference first, then compare the same workload across your LEGO architectures.</span></div>
+  </section>
+
   <main class="workspace">
     <section class="phase training">
       <div class="phase-title">

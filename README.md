@@ -138,3 +138,16 @@ Stop the app:
 ```cmd
 docker compose down
 ```
+
+## Architecture LEGO Explorer
+
+After running batch inference, the UI can compare the exact same trained-model workload across several teaching architectures:
+
+- **Base TinyRISC** — the SystemVerilog CPU execution measured by the batch benchmark.
+- **TinyRISC + 2× MAC** — adds two parallel multiply-accumulate lanes.
+- **TinyRISC + 4× MAC** — adds four parallel MAC lanes.
+- **TinyRISC + 8× MAC** — optional larger accelerator block.
+
+The base cycle count comes from the real SystemVerilog TinyRISC batch run. Optional MAC blocks use a transparent architecture-cycle model: scalar `MUL + ADD` MAC terms are replaced by `ceil(MAC terms / lanes)` accelerator cycles. Decision Tree and Random Forest do not contain matrix/dot-product MAC work, so the MAC block intentionally does not speed them up.
+
+These values are **simulated/projected architecture cycles, not physical wall-clock chip latency**. Prediction accuracy/agreement is unchanged because the trained model and quantized arithmetic are unchanged.

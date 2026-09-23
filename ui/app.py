@@ -70,6 +70,20 @@ def batch_infer():
     return jsonify(r)
 
 
+@app.post("/api/architecture-compare")
+def architecture_compare():
+    body = request.get_json(silent=True) or {}
+    architectures = body.get("architectures", [])
+    if not (RESULTS / "batch_benchmark.json").exists():
+        return jsonify({"ok": False, "output": "Run batch inference first."}), 400
+    r = run_process([
+        sys.executable, str(ROOT / "python" / "run_architecture_compare.py"),
+        "--architectures-json", json.dumps(architectures),
+    ])
+    r["data"] = load("architecture_compare.json")
+    return jsonify(r)
+
+
 @app.post("/api/sv-tests")
 def sv_tests():
     if sys.platform.startswith("win"):
